@@ -26,4 +26,10 @@ jobs:
           gradle-version: '8.9'
 
       - name: Compiler HARMONY VOICE
-        run: gradle assembleDebug
+        run: gradle assembleDebug  
+        
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HARMONY-VOICE-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
