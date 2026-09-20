@@ -11,10 +11,10 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import android.app.Activity
 import java.io.File
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private var recorder: MediaRecorder? = null
     private var mediaPlayer: MediaPlayer? = null
