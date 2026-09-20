@@ -3,13 +3,14 @@ package com.harmonyvoice.app
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -74,73 +75,93 @@ class MainActivity : Activity() {
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
-        root.setPadding(20, 20, 20, 20)
-        root.setBackgroundColor(android.graphics.Color.WHITE)
+        root.gravity = Gravity.TOP
+        root.setPadding(20, 12, 20, 16)
+        root.setBackgroundColor(Color.WHITE)
 
         val title = TextView(this)
         title.text = "HARMONY VOICE"
-        title.textSize = 28f
-        title.setTextColor(android.graphics.Color.rgb(40, 25, 70))
+        title.textSize = 27f
+        title.setTextColor(Color.rgb(40, 25, 70))
         title.gravity = Gravity.CENTER
-        title.setTypeface(null, android.graphics.Typeface.BOLD)
+        title.setTypeface(null, Typeface.BOLD)
 
         root.addView(
             title,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                65
+                55
             )
         )
 
         val subtitle = TextView(this)
         subtitle.text = "Chante. Harmonise. Partage."
-        subtitle.textSize = 16f
-        subtitle.setTextColor(android.graphics.Color.rgb(80, 170, 220))
+        subtitle.textSize = 15f
+        subtitle.setTextColor(Color.rgb(80, 170, 220))
         subtitle.gravity = Gravity.CENTER
 
         root.addView(
             subtitle,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                50
+                35
             )
         )
 
         val voiceBox = LinearLayout(this)
         voiceBox.orientation = LinearLayout.VERTICAL
-        voiceBox.gravity = Gravity.CENTER
-        voiceBox.setPadding(20, 20, 20, 20)
-        voiceBox.setBackgroundColor(android.graphics.Color.rgb(45, 25, 75))
+        voiceBox.gravity = Gravity.CENTER_HORIZONTAL
+        voiceBox.setPadding(18, 16, 18, 16)
+        voiceBox.setBackgroundColor(Color.rgb(45, 25, 75))
 
         val voiceTitle = TextView(this)
         voiceTitle.text = "TA VOIX"
-        voiceTitle.textSize = 20f
-        voiceTitle.setTextColor(android.graphics.Color.WHITE)
+        voiceTitle.textSize = 18f
+        voiceTitle.setTextColor(Color.WHITE)
         voiceTitle.gravity = Gravity.CENTER
-        voiceTitle.setTypeface(null, android.graphics.Typeface.BOLD)
+        voiceTitle.setTypeface(null, Typeface.BOLD)
 
-        voiceBox.addView(voiceTitle)
+        voiceBox.addView(
+            voiceTitle,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                35
+            )
+        )
 
         val microphone = TextView(this)
         microphone.text = "🎤"
-        microphone.textSize = 50f
+        microphone.textSize = 42f
         microphone.gravity = Gravity.CENTER
 
-        voiceBox.addView(microphone)
+        voiceBox.addView(
+            microphone,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                58
+            )
+        )
 
         timerText = TextView(this)
         timerText.text = "00:00"
-        timerText.textSize = 24f
-        timerText.setTextColor(android.graphics.Color.WHITE)
+        timerText.textSize = 22f
+        timerText.setTextColor(Color.WHITE)
         timerText.gravity = Gravity.CENTER
+        timerText.setTypeface(null, Typeface.BOLD)
 
-        voiceBox.addView(timerText)
+        voiceBox.addView(
+            timerText,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                38
+            )
+        )
 
-        recordButton = Button(this)
-        recordButton.text = "●  ENREGISTRER MA VOIX"
-        recordButton.textSize = 14f
-        recordButton.setTextColor(android.graphics.Color.WHITE)
-        recordButton.setBackgroundColor(android.graphics.Color.rgb(98, 0, 238))
+        recordButton = createActionButton(
+            "●  ENREGISTRER MA VOIX",
+            Color.rgb(98, 0, 238),
+            Color.WHITE
+        )
 
         recordButton.setOnClickListener {
             if (isRecording) {
@@ -150,79 +171,104 @@ class MainActivity : Activity() {
             }
         }
 
+        val recordParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            54
+        )
+        recordParams.topMargin = 10
+
         voiceBox.addView(
             recordButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                60
-            )
+            recordParams
         )
 
-        listenButton = Button(this)
-        listenButton.text = "▶  ÉCOUTER MA VOIX"
-        listenButton.textSize = 14f
+        listenButton = createActionButton(
+            "▶  ÉCOUTER MA VOIX",
+            Color.rgb(115, 75, 150),
+            Color.WHITE
+        )
+
         listenButton.isEnabled = false
+
         listenButton.setOnClickListener {
             playRecording()
         }
 
+        val listenParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            54
+        )
+        listenParams.topMargin = 8
+
         voiceBox.addView(
             listenButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                60
-            )
+            listenParams
         )
+
+        val voiceParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            275
+        )
+        voiceParams.topMargin = 18
 
         root.addView(
             voiceBox,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                330
-            )
+            voiceParams
         )
 
         val chooseTitle = TextView(this)
         chooseTitle.text = "CHOISIS UNE PARTIE"
-        chooseTitle.textSize = 18f
-        chooseTitle.setTextColor(android.graphics.Color.rgb(45, 25, 75))
-        chooseTitle.gravity = Gravity.CENTER
-        chooseTitle.setTypeface(null, android.graphics.Typeface.BOLD)
+        chooseTitle.textSize = 17f
+        chooseTitle.setTextColor(Color.rgb(45, 25, 75))
+        chooseTitle.gravity = Gravity.CENTER_VERTICAL
+        chooseTitle.setTypeface(null, Typeface.BOLD)
+
+        val chooseParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            45
+        )
+        chooseParams.topMargin = 10
 
         root.addView(
             chooseTitle,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                50
-            )
+            chooseParams
         )
 
         val parts = LinearLayout(this)
         parts.orientation = LinearLayout.HORIZONTAL
         parts.gravity = Gravity.CENTER
 
-        parts.addView(
-            createPartButton("SOPRANO"),
-            LinearLayout.LayoutParams(0, 60, 1f)
+        val soprano = createPartButton("SOPRANO")
+        val alto = createPartButton("ALTO")
+        val tenor = createPartButton("TÉNOR")
+
+        val partParams1 = LinearLayout.LayoutParams(0, 56, 1f)
+        partParams1.rightMargin = 7
+
+        val partParams2 = LinearLayout.LayoutParams(0, 56, 1f)
+        partParams2.leftMargin = 3
+        partParams2.rightMargin = 3
+
+        val partParams3 = LinearLayout.LayoutParams(0, 56, 1f)
+        partParams3.leftMargin = 7
+
+        parts.addView(soprano, partParams1)
+        parts.addView(alto, partParams2)
+        parts.addView(tenor, partParams3)
+
+        root.addView(
+            parts,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                56
+            )
         )
 
-        parts.addView(
-            createPartButton("ALTO"),
-            LinearLayout.LayoutParams(0, 60, 1f)
+        val harmonyButton = createActionButton(
+            "▶  ÉCOUTER L'HARMONIE",
+            Color.rgb(180, 225, 245),
+            Color.rgb(45, 25, 75)
         )
-
-        parts.addView(
-            createPartButton("TÉNOR"),
-            LinearLayout.LayoutParams(0, 60, 1f)
-        )
-
-        root.addView(parts)
-
-        val harmonyButton = Button(this)
-        harmonyButton.text = "▶  ÉCOUTER L'HARMONIE"
-        harmonyButton.textSize = 13f
-        harmonyButton.setTextColor(android.graphics.Color.rgb(45, 25, 75))
-        harmonyButton.setBackgroundColor(android.graphics.Color.rgb(180, 225, 245))
 
         harmonyButton.setOnClickListener {
             Toast.makeText(
@@ -232,29 +278,54 @@ class MainActivity : Activity() {
             ).show()
         }
 
+        val harmonyParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            62
+        )
+        harmonyParams.topMargin = 18
+
         root.addView(
             harmonyButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                75
-            )
+            harmonyParams
         )
 
         val bottom = TextView(this)
         bottom.text = "Mes voix  •  Harmonies  •  Profil"
-        bottom.textSize = 14f
-        bottom.setTextColor(android.graphics.Color.DKGRAY)
+        bottom.textSize = 13f
+        bottom.setTextColor(Color.DKGRAY)
         bottom.gravity = Gravity.CENTER
+
+        val bottomParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            40
+        )
+        bottomParams.topMargin = 8
 
         root.addView(
             bottom,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                55
-            )
+            bottomParams
         )
 
         setContentView(root)
+    }
+
+    private fun createActionButton(
+        text: String,
+        background: Int,
+        textColor: Int
+    ): Button {
+
+        val button = Button(this)
+
+        button.text = text
+        button.textSize = 13f
+        button.setTextColor(textColor)
+        button.setTypeface(null, Typeface.BOLD)
+        button.setBackgroundColor(background)
+
+        button.setPadding(5, 0, 5, 0)
+
+        return button
     }
 
     private fun createPartButton(text: String): Button {
@@ -262,11 +333,12 @@ class MainActivity : Activity() {
         val button = Button(this)
 
         button.text = text
-        button.textSize = 13f
-        button.setTextColor(android.graphics.Color.rgb(180, 225, 245))
-        button.setBackgroundColor(android.graphics.Color.rgb(45, 25, 75))
+        button.textSize = 12f
+        button.setTextColor(Color.rgb(180, 225, 245))
+        button.setTypeface(null, Typeface.BOLD)
+        button.setBackgroundColor(Color.rgb(45, 25, 75))
 
-        button.setPadding(10, 5, 10, 5)
+        button.setPadding(2, 0, 2, 0)
 
         button.setOnClickListener {
             Toast.makeText(
