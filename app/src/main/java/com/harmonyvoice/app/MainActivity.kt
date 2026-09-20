@@ -165,7 +165,7 @@ class MainActivity : Activity() {
         // SOPRANO
         val soprano = Button(this)
         soprano.text = "SOPRANO"
-        soprano.textSize = 14f
+        soprano.textSize = 13f
         styleButton(soprano, cardColor, cyan)
 
         layout.addView(
@@ -181,7 +181,7 @@ class MainActivity : Activity() {
         // ALTO
         val alto = Button(this)
         alto.text = "ALTO"
-        alto.textSize = 14f
+        alto.textSize = 13f
         styleButton(alto, cardColor, cyan)
 
         layout.addView(
@@ -197,7 +197,7 @@ class MainActivity : Activity() {
         // TENOR
         val tenor = Button(this)
         tenor.text = "TÉNOR"
-        tenor.textSize = 14f
+        tenor.textSize = 13f
         styleButton(tenor, cardColor, cyan)
 
         layout.addView(
