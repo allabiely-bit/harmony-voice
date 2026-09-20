@@ -444,13 +444,12 @@ class MainActivity : Activity() {
 
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(outputFile)
-
                 setOnCompletionListener {
-                    isPlaying = false
-                    listenButton.text = "▶  ÉCOUTER MA VOIX"
+    isPlaying = false
+    listenButton.text = "▶  ÉCOUTER MA VOIX"
 
-                    release()
-this@MainActivity.mediaPlayer = null
+    release()
+    this@MainActivity.mediaPlayer = null
                 }
 
                 prepare()
