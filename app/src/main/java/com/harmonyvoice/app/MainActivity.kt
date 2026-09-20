@@ -6,8 +6,11 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -20,11 +23,38 @@ import java.io.File
 class MainActivity : Activity() {
 
     private var recorder: MediaRecorder? = null
+    private var mediaPlayer: MediaPlayer? = null
+
     private var outputFile: String = ""
     private var isRecording = false
+    private var isPlaying = false
 
     private lateinit var recordButton: Button
     private lateinit var recordText: TextView
+    private lateinit var timerText: TextView
+    private lateinit var listenButton: Button
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var recordingSeconds = 0
+
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            if (isRecording) {
+                recordingSeconds++
+
+                val minutes = recordingSeconds / 60
+                val seconds = recordingSeconds % 60
+
+                timerText.text = String.format(
+                    "%02d:%02d",
+                    minutes,
+                    seconds
+                )
+
+                handler.postDelayed(this, 1000)
+            }
+        }
+    }
 
     private fun roundedBackground(
         color: Int,
@@ -53,6 +83,7 @@ class MainActivity : Activity() {
         height: Int
     ) {
         val space = TextView(this)
+
         layout.addView(
             space,
             LinearLayout.LayoutParams(
@@ -103,6 +134,7 @@ class MainActivity : Activity() {
         subtitle.setTextColor(cyan)
         subtitle.gravity = Gravity.CENTER
         subtitle.setPadding(0, 8, 0, 0)
+
         layout.addView(subtitle)
 
         addSpace(layout, 35)
@@ -119,9 +151,21 @@ class MainActivity : Activity() {
         micTitle.setTextColor(softWhite)
         micTitle.setTypeface(null, Typeface.BOLD)
         micTitle.gravity = Gravity.CENTER
+
         micCard.addView(micTitle)
 
-        addSpace(micCard, 15)
+        addSpace(micCard, 12)
+
+        timerText = TextView(this)
+        timerText.text = "00:00"
+        timerText.textSize = 24f
+        timerText.setTextColor(cyan)
+        timerText.setTypeface(null, Typeface.BOLD)
+        timerText.gravity = Gravity.CENTER
+
+        micCard.addView(timerText)
+
+        addSpace(micCard, 12)
 
         recordButton = Button(this)
         recordButton.text = "🎤"
@@ -143,7 +187,26 @@ class MainActivity : Activity() {
         recordText.setTextColor(white)
         recordText.setTypeface(null, Typeface.BOLD)
         recordText.gravity = Gravity.CENTER
+
         micCard.addView(recordText)
+
+        addSpace(micCard, 18)
+
+        listenButton = Button(this)
+        listenButton.text = "▶  ÉCOUTER MA VOIX"
+        listenButton.textSize = 15f
+        styleButton(listenButton, cyan, Color.rgb(8, 8, 28))
+
+        listenButton.isEnabled = false
+        listenButton.alpha = 0.5f
+
+        micCard.addView(
+            listenButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                65
+            )
+        )
 
         recordButton.setOnClickListener {
             if (isRecording) {
@@ -151,6 +214,10 @@ class MainActivity : Activity() {
             } else {
                 startRecording()
             }
+        }
+
+        listenButton.setOnClickListener {
+            playRecording()
         }
 
         layout.addView(
@@ -169,6 +236,7 @@ class MainActivity : Activity() {
         harmonyTitle.setTextColor(white)
         harmonyTitle.setTypeface(null, Typeface.BOLD)
         harmonyTitle.gravity = Gravity.CENTER
+
         layout.addView(harmonyTitle)
 
         addSpace(layout, 15)
@@ -218,13 +286,17 @@ class MainActivity : Activity() {
 
         addSpace(layout, 30)
 
-        val listenButton = Button(this)
-        listenButton.text = "▶  ÉCOUTER L'HARMONIE"
-        listenButton.textSize = 17f
-        styleButton(listenButton, cyan, Color.rgb(8, 8, 28))
+        val harmonyButton = Button(this)
+        harmonyButton.text = "▶  ÉCOUTER L'HARMONIE"
+        harmonyButton.textSize = 17f
+        styleButton(
+            harmonyButton,
+            cyan,
+            Color.rgb(8, 8, 28)
+        )
 
         layout.addView(
-            listenButton,
+            harmonyButton,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 75
@@ -238,6 +310,7 @@ class MainActivity : Activity() {
         footer.textSize = 14f
         footer.setTextColor(softWhite)
         footer.gravity = Gravity.CENTER
+
         layout.addView(footer)
 
         setContentView(scrollView)
@@ -245,8 +318,9 @@ class MainActivity : Activity() {
 
     private fun startRecording() {
 
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
+        if (checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.RECORD_AUDIO),
@@ -256,6 +330,7 @@ class MainActivity : Activity() {
         }
 
         try {
+
             val file = File(
                 getExternalFilesDir(null),
                 "ma_voix.3gp"
@@ -264,17 +339,36 @@ class MainActivity : Activity() {
             outputFile = file.absolutePath
 
             recorder = MediaRecorder().apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+                setAudioSource(
+                    MediaRecorder.AudioSource.MIC
+                )
+
+                setOutputFormat(
+                    MediaRecorder.OutputFormat.THREE_GPP
+                )
+
+                setAudioEncoder(
+                    MediaRecorder.AudioEncoder.AMR_NB
+                )
+
                 setOutputFile(outputFile)
+
                 prepare()
                 start()
             }
 
             isRecording = true
+            recordingSeconds = 0
+
+            timerText.text = "00:00"
+
             recordButton.text = "⏹"
             recordText.text = "ARRÊTER L'ENREGISTREMENT"
+
+            listenButton.isEnabled = false
+            listenButton.alpha = 0.5f
+
+            handler.postDelayed(timerRunnable, 1000)
 
             Toast.makeText(
                 this,
@@ -298,6 +392,8 @@ class MainActivity : Activity() {
 
     private fun stopRecording() {
 
+        handler.removeCallbacks(timerRunnable)
+
         try {
             recorder?.stop()
         } catch (_: Exception) {
@@ -307,8 +403,18 @@ class MainActivity : Activity() {
         recorder = null
 
         isRecording = false
+
         recordButton.text = "🎤"
         recordText.text = "ENREGISTRER MA VOIX"
+
+        timerText.text = String.format(
+            "%02d:%02d",
+            recordingSeconds / 60,
+            recordingSeconds % 60
+        )
+
+        listenButton.isEnabled = true
+        listenButton.alpha = 1.0f
 
         Toast.makeText(
             this,
@@ -317,11 +423,63 @@ class MainActivity : Activity() {
         ).show()
     }
 
+    private fun playRecording() {
+
+        if (outputFile.isEmpty()) {
+            return
+        }
+
+        if (isPlaying) {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+
+            isPlaying = false
+            listenButton.text = "▶  ÉCOUTER MA VOIX"
+
+            return
+        }
+
+        try {
+
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(outputFile)
+
+                setOnCompletionListener {
+                    isPlaying = false
+                    listenButton.text = "▶  ÉCOUTER MA VOIX"
+
+                    release()
+                    mediaPlayer = null
+                }
+
+                prepare()
+                start()
+            }
+
+            isPlaying = true
+            listenButton.text = "⏹  ARRÊTER L'ÉCOUTE"
+
+        } catch (e: Exception) {
+
+            mediaPlayer?.release()
+            mediaPlayer = null
+            isPlaying = false
+
+            Toast.makeText(
+                this,
+                "Impossible de lire l'enregistrement",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
         grantResults: IntArray
     ) {
+
         super.onRequestPermissionsResult(
             requestCode,
             permissions,
@@ -330,7 +488,8 @@ class MainActivity : Activity() {
 
         if (requestCode == 100 &&
             grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
+            grantResults[0] ==
+            PackageManager.PERMISSION_GRANTED
         ) {
             startRecording()
         } else {
@@ -343,6 +502,9 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+
+        handler.removeCallbacks(timerRunnable)
+
         if (isRecording) {
             try {
                 recorder?.stop()
@@ -352,6 +514,9 @@ class MainActivity : Activity() {
 
         recorder?.release()
         recorder = null
+
+        mediaPlayer?.release()
+        mediaPlayer = null
 
         super.onDestroy()
     }
