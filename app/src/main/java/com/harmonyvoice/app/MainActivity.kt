@@ -172,7 +172,7 @@ class MainActivity : Activity() {
             soprano,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                60
+                65
             )
         )
 
@@ -188,7 +188,7 @@ class MainActivity : Activity() {
             alto,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                60
+                65
             )
         )
 
@@ -204,7 +204,7 @@ class MainActivity : Activity() {
             tenor,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                60
+                65
             )
         )
 
@@ -220,7 +220,7 @@ class MainActivity : Activity() {
             listenButton,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                65
+                75
             )
         )
 
