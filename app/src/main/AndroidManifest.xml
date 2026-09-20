@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
-        android:theme="@style/AppTheme"
+        android:theme="@style/Theme.HarmonyVoice"
         android:label="HARMONY VOICE"
         android:allowBackup="true"
         android:supportsRtl="true">
