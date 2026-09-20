@@ -910,5 +910,6 @@ override fun onDestroy() {
 
     mediaPlayer = null
 
-    super.onDestroy()
+        super.onDestroy()
+}
 }
