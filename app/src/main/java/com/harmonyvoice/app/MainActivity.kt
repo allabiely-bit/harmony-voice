@@ -450,7 +450,7 @@ class MainActivity : Activity() {
                     listenButton.text = "▶  ÉCOUTER MA VOIX"
 
                     release()
-                    mediaPlayer = null
+this@MainActivity.mediaPlayer = null
                 }
 
                 prepare()
