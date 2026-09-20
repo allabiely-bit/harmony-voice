@@ -781,6 +781,134 @@ class MainActivity : Activity() {
 
     private fun stopRecording() {
 
+    try {
+        recorder?.stop()
+    } catch (e: Exception) {
+    }
+
+    recorder?.release()
+    recorder = null
+
+    isRecording = false
+
+    handler.removeCallbacks(timerRunnable)
+
+    recordButton.text = "●  ENREGISTRER MA VOIX"
+
+    listenButton.isEnabled = true
+    listenButton.alpha = 1.0f
+
+    Toast.makeText(
+        this,
+        "Enregistrement terminé",
+        Toast.LENGTH_SHORT
+    ).show()
+}
+
+// ---------------------------------------------------------
+// ÉCOUTER L'ENREGISTREMENT
+// ---------------------------------------------------------
+
+private fun playRecording() {
+
+    if (outputFile.isEmpty()) {
+
+        Toast.makeText(
+            this,
+            "Aucun enregistrement disponible.",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        return
+    }
+
+    if (!File(outputFile).exists()) {
+
+        Toast.makeText(
+            this,
+            "Aucun enregistrement disponible.",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        return
+    }
+
+    if (isPlaying) {
+
         try {
-            recorder?.stop()
-        } c
+            mediaPlayer?.stop()
+        } catch (e: Exception) {
+        }
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        isPlaying = false
+
+        listenButton.text = "▶  ÉCOUTER MA VOIX"
+
+        return
+    }
+
+    try {
+
+        mediaPlayer = MediaPlayer()
+
+        mediaPlayer?.setDataSource(outputFile)
+
+        mediaPlayer?.setOnCompletionListener {
+
+            isPlaying = false
+
+            listenButton.text = "▶  ÉCOUTER MA VOIX"
+
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+
+        mediaPlayer?.prepare()
+        mediaPlayer?.start()
+
+        isPlaying = true
+
+        listenButton.text = "⏹  ARRÊTER L'ÉCOUTE"
+
+    } catch (e: Exception) {
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        isPlaying = false
+
+        Toast.makeText(
+            this,
+            "Impossible de lire l'enregistrement.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+}
+
+// ---------------------------------------------------------
+// NETTOYAGE
+// ---------------------------------------------------------
+
+override fun onDestroy() {
+
+    handler.removeCallbacks(timerRunnable)
+
+    try {
+        recorder?.release()
+    } catch (e: Exception) {
+    }
+
+    recorder = null
+
+    try {
+        mediaPlayer?.release()
+    } catch (e: Exception) {
+    }
+
+    mediaPlayer = null
+
+    super.onDestroy()
+}
