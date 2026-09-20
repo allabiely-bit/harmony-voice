@@ -32,7 +32,7 @@ class MainActivity : Activity() {
         button.background = roundedBackground(backgroundColor, 45f)
         button.setTextColor(textColor)
         button.setTypeface(null, Typeface.BOLD)
-        button.setPadding(25, 18, 25, 18)
+        button.setPadding(25, 5, 25, 5)
         button.isAllCaps = false
     }
 
