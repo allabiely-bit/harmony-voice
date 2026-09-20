@@ -1,39 +1,36 @@
 package com.harmonyvoice.app
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.Typeface
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import java.io.File
-import java.util.Locale
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
 
     private var recorder: MediaRecorder? = null
     private var mediaPlayer: MediaPlayer? = null
 
+    private var outputFile = ""
+
     private var isRecording = false
     private var isPlaying = false
 
-    private var outputFile = ""
+    private var seconds = 0
 
     private lateinit var timerText: TextView
     private lateinit var recordButton: Button
     private lateinit var listenButton: Button
 
     private val handler = Handler(Looper.getMainLooper())
-    private var seconds = 0
 
     private val timerRunnable = object : Runnable {
         override fun run() {
@@ -43,12 +40,8 @@ class MainActivity : Activity() {
                 val minutes = seconds / 60
                 val secs = seconds % 60
 
-                timerText.text = String.format(
-                    Locale.getDefault(),
-                    "%02d:%02d",
-                    minutes,
-                    secs
-                )
+                timerText.text =
+                    String.format("%02d:%02d", minutes, secs)
 
                 handler.postDelayed(this, 1000)
             }
@@ -58,112 +51,157 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (android.os.Build.VERSION.SDK_INT >= 23 &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                100
-            )
-        }
-
         createInterface()
     }
 
     private fun createInterface() {
 
-        val root = LinearLayout(this)
-        root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.TOP
-        root.setPadding(20, 12, 20, 16)
-        root.setBackgroundColor(Color.WHITE)
+        val mainLayout = LinearLayout(this)
 
+        mainLayout.orientation = LinearLayout.VERTICAL
+        mainLayout.setPadding(32, 30, 32, 30)
+
+        mainLayout.setBackgroundColor(
+            android.graphics.Color.rgb(18, 18, 24)
+        )
+
+        // TITRE
         val title = TextView(this)
-        title.text = "HARMONY VOICE"
-        title.textSize = 27f
-        title.setTextColor(Color.rgb(40, 25, 70))
-        title.gravity = Gravity.CENTER
-        title.setTypeface(null, Typeface.BOLD)
 
-        root.addView(
+        title.text = "HARMONY VOICE"
+        title.textSize = 28f
+        title.setTextColor(android.graphics.Color.WHITE)
+        title.gravity = android.view.Gravity.CENTER
+        title.setPadding(0, 0, 0, 12)
+
+        mainLayout.addView(
             title,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // SOUS-TITRE
+        val subtitle = TextView(this)
+
+        subtitle.text = "Chante une voix • Crée ton harmonie"
+        subtitle.textSize = 15f
+        subtitle.setTextColor(
+            android.graphics.Color.LTGRAY
+        )
+        subtitle.gravity = android.view.Gravity.CENTER
+
+        val subtitleParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        subtitleParams.setMargins(0, 0, 0, 24)
+
+        mainLayout.addView(
+            subtitle,
+            subtitleParams
+        )
+
+        // BLOC TA VOIX
+        val voiceBox = LinearLayout(this)
+
+        voiceBox.orientation = LinearLayout.VERTICAL
+        voiceBox.gravity = android.view.Gravity.CENTER
+
+        voiceBox.setPadding(24, 22, 24, 22)
+
+        voiceBox.setBackgroundColor(
+            android.graphics.Color.rgb(38, 38, 48)
+        )
+
+        val voiceBoxParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            230
+        )
+
+        voiceBoxParams.setMargins(0, 0, 0, 20)
+
+        mainLayout.addView(
+            voiceBox,
+            voiceBoxParams
+        )
+
+        // TA VOIX
+        val voiceTitle = TextView(this)
+
+        voiceTitle.text = "TA VOIX"
+        voiceTitle.textSize = 22f
+        voiceTitle.setTextColor(
+            android.graphics.Color.WHITE
+        )
+        voiceTitle.gravity = android.view.Gravity.CENTER
+
+        voiceBox.addView(
+            voiceTitle,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                50
+            )
+        )
+
+        // MICRO
+        val microphone = TextView(this)
+
+        microphone.text = "🎤"
+        microphone.textSize = 42f
+        microphone.gravity = android.view.Gravity.CENTER
+
+        val micParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            70
+        )
+
+        micParams.setMargins(0, 4, 0, 4)
+
+        voiceBox.addView(
+            microphone,
+            micParams
+        )
+
+        // TIMER
+        timerText = TextView(this)
+
+        timerText.text = "00:00"
+        timerText.textSize = 24f
+        timerText.setTextColor(
+            android.graphics.Color.WHITE
+        )
+        timerText.gravity = android.view.Gravity.CENTER
+
+        voiceBox.addView(
+            timerText,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 55
             )
         )
 
-        val subtitle = TextView(this)
-        subtitle.text = "Chante. Harmonise. Partage."
-        subtitle.textSize = 15f
-        subtitle.setTextColor(Color.rgb(80, 170, 220))
-        subtitle.gravity = Gravity.CENTER
-
-        root.addView(
-            subtitle,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                35
-            )
-        )
-
-        val voiceBox = LinearLayout(this)
-        voiceBox.orientation = LinearLayout.VERTICAL
-        voiceBox.gravity = Gravity.CENTER_HORIZONTAL
-        voiceBox.setPadding(18, 16, 18, 16)
-        voiceBox.setBackgroundColor(Color.rgb(45, 25, 75))
-
-        val voiceTitle = TextView(this)
-        voiceTitle.text = "TA VOIX"
-        voiceTitle.textSize = 18f
-        voiceTitle.setTextColor(Color.WHITE)
-        voiceTitle.gravity = Gravity.CENTER
-        voiceTitle.setTypeface(null, Typeface.BOLD)
-
-        voiceBox.addView(
-            voiceTitle,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                35
-            )
-        )
-
-        val microphone = TextView(this)
-        microphone.text = "🎤"
-        microphone.textSize = 42f
-        microphone.gravity = Gravity.CENTER
-
-        voiceBox.addView(
-            microphone,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                58
-            )
-        )
-
-        timerText = TextView(this)
-        timerText.text = "00:00"
-        timerText.textSize = 22f
-        timerText.setTextColor(Color.WHITE)
-        timerText.gravity = Gravity.CENTER
-        timerText.setTypeface(null, Typeface.BOLD)
-
-        voiceBox.addView(
-            timerText,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                38
-            )
-        )
-
+        // BOUTON ENREGISTRER
         recordButton = createActionButton(
-            "●  ENREGISTRER MA VOIX",
-            Color.rgb(98, 0, 238),
-            Color.WHITE
+            "●  ENREGISTRER MA VOIX"
+        )
+
+        val recordParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            62
+        )
+
+        recordParams.setMargins(0, 0, 0, 14)
+
+        mainLayout.addView(
+            recordButton,
+            recordParams
         )
 
         recordButton.setOnClickListener {
+
             if (isRecording) {
                 stopRecording()
             } else {
@@ -171,21 +209,21 @@ class MainActivity : Activity() {
             }
         }
 
-        val recordParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            54
-        )
-        recordParams.topMargin = 10
-
-        voiceBox.addView(
-            recordButton,
-            recordParams
-        )
-
+        // BOUTON ÉCOUTER
         listenButton = createActionButton(
-            "▶  ÉCOUTER MA VOIX",
-            Color.rgb(115, 75, 150),
-            Color.WHITE
+            "▶  ÉCOUTER MA VOIX"
+        )
+
+        val listenParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            62
+        )
+
+        listenParams.setMargins(0, 0, 0, 26)
+
+        mainLayout.addView(
+            listenButton,
+            listenParams
         )
 
         listenButton.isEnabled = false
@@ -194,174 +232,157 @@ class MainActivity : Activity() {
             playRecording()
         }
 
-        val listenParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            54
-        )
-        listenParams.topMargin = 8
-
-        voiceBox.addView(
-            listenButton,
-            listenParams
-        )
-
-        val voiceParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            275
-        )
-        voiceParams.topMargin = 18
-
-        root.addView(
-            voiceBox,
-            voiceParams
-        )
-
+        // TITRE PARTIES
         val chooseTitle = TextView(this)
+
         chooseTitle.text = "CHOISIS UNE PARTIE"
-        chooseTitle.textSize = 17f
-        chooseTitle.setTextColor(Color.rgb(45, 25, 75))
-        chooseTitle.gravity = Gravity.CENTER_VERTICAL
-        chooseTitle.setTypeface(null, Typeface.BOLD)
-
-        val chooseParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            45
+        chooseTitle.textSize = 19f
+        chooseTitle.setTextColor(
+            android.graphics.Color.WHITE
         )
-        chooseParams.topMargin = 10
+        chooseTitle.gravity = android.view.Gravity.CENTER
 
-        root.addView(
+        chooseTitle.setPadding(0, 8, 0, 14)
+
+        mainLayout.addView(
             chooseTitle,
-            chooseParams
-        )
-
-        val parts = LinearLayout(this)
-        parts.orientation = LinearLayout.HORIZONTAL
-        parts.gravity = Gravity.CENTER
-
-        val soprano = createPartButton("SOPRANO")
-        val alto = createPartButton("ALTO")
-        val tenor = createPartButton("TÉNOR")
-
-        val partParams1 = LinearLayout.LayoutParams(0, 56, 1f)
-        partParams1.rightMargin = 7
-
-        val partParams2 = LinearLayout.LayoutParams(0, 56, 1f)
-        partParams2.leftMargin = 3
-        partParams2.rightMargin = 3
-
-        val partParams3 = LinearLayout.LayoutParams(0, 56, 1f)
-        partParams3.leftMargin = 7
-
-        parts.addView(soprano, partParams1)
-        parts.addView(alto, partParams2)
-        parts.addView(tenor, partParams3)
-
-        root.addView(
-            parts,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                56
+                55
             )
         )
 
+        // SOPRANO
+        val sopranoButton = createPartButton(
+            "SOPRANO"
+        )
+
+        mainLayout.addView(
+            sopranoButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                58
+            ).apply {
+                setMargins(0, 0, 0, 12)
+            }
+        )
+
+        // ALTO
+        val altoButton = createPartButton(
+            "ALTO"
+        )
+
+        mainLayout.addView(
+            altoButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                58
+            ).apply {
+                setMargins(0, 0, 0, 12)
+            }
+        )
+
+        // TÉNOR
+        val tenorButton = createPartButton(
+            "TÉNOR"
+        )
+
+        mainLayout.addView(
+            tenorButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                58
+            ).apply {
+                setMargins(0, 0, 0, 20)
+            }
+        )
+
+        // ÉCOUTER L'HARMONIE
         val harmonyButton = createActionButton(
-            "▶  ÉCOUTER L'HARMONIE",
-            Color.rgb(180, 225, 245),
-            Color.rgb(45, 25, 75)
+            "♫  ÉCOUTER L'HARMONIE"
+        )
+
+        mainLayout.addView(
+            harmonyButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                64
+            )
         )
 
         harmonyButton.setOnClickListener {
+
             Toast.makeText(
                 this,
-                "La génération des harmonies sera ajoutée ensuite.",
-                Toast.LENGTH_SHORT
+                "La génération des harmonies sera ajoutée prochainement.",
+                Toast.LENGTH_LONG
             ).show()
         }
 
-        val harmonyParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            62
-        )
-        harmonyParams.topMargin = 18
-
-        root.addView(
-            harmonyButton,
-            harmonyParams
-        )
-
-        val bottom = TextView(this)
-        bottom.text = "Mes voix  •  Harmonies  •  Profil"
-        bottom.textSize = 13f
-        bottom.setTextColor(Color.DKGRAY)
-        bottom.gravity = Gravity.CENTER
-
-        val bottomParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            40
-        )
-        bottomParams.topMargin = 8
-
-        root.addView(
-            bottom,
-            bottomParams
-        )
-
-        setContentView(root)
+        setContentView(mainLayout)
     }
 
     private fun createActionButton(
-        text: String,
-        background: Int,
-        textColor: Int
+        text: String
     ): Button {
 
         val button = Button(this)
 
         button.text = text
-        button.textSize = 13f
-        button.setTextColor(textColor)
-        button.setTypeface(null, Typeface.BOLD)
-        button.setBackgroundColor(background)
+        button.textSize = 16f
 
-        button.setPadding(5, 0, 5, 0)
+        button.setTextColor(
+            android.graphics.Color.WHITE
+        )
+
+        button.setBackgroundColor(
+            android.graphics.Color.rgb(98, 0, 238)
+        )
+
+        button.isAllCaps = false
 
         return button
     }
 
-    private fun createPartButton(text: String): Button {
+    private fun createPartButton(
+        text: String
+    ): Button {
 
         val button = Button(this)
 
         button.text = text
-        button.textSize = 12f
-        button.setTextColor(Color.rgb(180, 225, 245))
-        button.setTypeface(null, Typeface.BOLD)
-        button.setBackgroundColor(Color.rgb(45, 25, 75))
+        button.textSize = 17f
 
-        button.setPadding(2, 0, 2, 0)
+        button.setTextColor(
+            android.graphics.Color.WHITE
+        )
 
-        button.setOnClickListener {
-            Toast.makeText(
-                this,
-                "$text sélectionné",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+        button.gravity = android.view.Gravity.CENTER
+
+        button.setBackgroundColor(
+            android.graphics.Color.rgb(55, 55, 68)
+        )
+
+        button.isAllCaps = true
 
         return button
     }
 
     private fun startRecording() {
 
-        if (android.os.Build.VERSION.SDK_INT >= 23 &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
+        if (
+            android.os.Build.VERSION.SDK_INT >= 23 &&
+            checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
+
             Toast.makeText(
                 this,
                 "Autorise d'abord le microphone.",
                 Toast.LENGTH_LONG
             ).show()
+
             return
         }
 
@@ -370,11 +391,13 @@ class MainActivity : Activity() {
             val directory = getExternalFilesDir(null)
 
             if (directory == null) {
+
                 Toast.makeText(
                     this,
                     "Impossible d'utiliser le stockage.",
                     Toast.LENGTH_LONG
                 ).show()
+
                 return
             }
 
@@ -397,16 +420,22 @@ class MainActivity : Activity() {
                 MediaRecorder.AudioEncoder.AMR_NB
             )
 
-            recorder?.setOutputFile(outputFile)
+            recorder?.setOutputFile(
+                outputFile
+            )
 
             recorder?.prepare()
+
             recorder?.start()
 
             isRecording = true
             seconds = 0
+
             timerText.text = "00:00"
 
-            recordButton.text = "⏹  ARRÊTER L'ENREGISTREMENT"
+            recordButton.text =
+                "⏹  ARRÊTER L'ENREGISTREMENT"
+
             listenButton.isEnabled = false
 
             handler.post(timerRunnable)
@@ -443,9 +472,14 @@ class MainActivity : Activity() {
         recorder = null
 
         isRecording = false
-        handler.removeCallbacks(timerRunnable)
 
-        recordButton.text = "●  ENREGISTRER MA VOIX"
+        handler.removeCallbacks(
+            timerRunnable
+        )
+
+        recordButton.text =
+            "●  ENREGISTRER MA VOIX"
+
         listenButton.isEnabled = true
 
         Toast.makeText(
@@ -462,11 +496,13 @@ class MainActivity : Activity() {
         }
 
         if (!File(outputFile).exists()) {
+
             Toast.makeText(
                 this,
                 "Aucun enregistrement disponible.",
                 Toast.LENGTH_SHORT
             ).show()
+
             return
         }
 
@@ -477,7 +513,9 @@ class MainActivity : Activity() {
             mediaPlayer = null
 
             isPlaying = false
-            listenButton.text = "▶  ÉCOUTER MA VOIX"
+
+            listenButton.text =
+                "▶  ÉCOUTER MA VOIX"
 
             return
         }
@@ -486,22 +524,29 @@ class MainActivity : Activity() {
 
             mediaPlayer = MediaPlayer()
 
-            mediaPlayer?.setDataSource(outputFile)
+            mediaPlayer?.setDataSource(
+                outputFile
+            )
 
             mediaPlayer?.setOnCompletionListener {
 
                 isPlaying = false
-                listenButton.text = "▶  ÉCOUTER MA VOIX"
+
+                listenButton.text =
+                    "▶  ÉCOUTER MA VOIX"
 
                 mediaPlayer?.release()
                 mediaPlayer = null
             }
 
             mediaPlayer?.prepare()
+
             mediaPlayer?.start()
 
             isPlaying = true
-            listenButton.text = "⏹  ARRÊTER L'ÉCOUTE"
+
+            listenButton.text =
+                "⏹  ARRÊTER L'ÉCOUTE"
 
         } catch (e: Exception) {
 
@@ -520,7 +565,9 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
 
-        handler.removeCallbacks(timerRunnable)
+        handler.removeCallbacks(
+            timerRunnable
+        )
 
         recorder?.release()
         recorder = null
