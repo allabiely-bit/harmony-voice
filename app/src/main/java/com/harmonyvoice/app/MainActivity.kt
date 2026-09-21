@@ -686,24 +686,36 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------
 
     private fun startRecording() {
+        
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+
+    val microphonePermission =
+        checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+
+    val storagePermission =
+        checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
     if (
-        android.os.Build.VERSION.SDK_INT >= 23 &&
-        checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-        != PackageManager.PERMISSION_GRANTED
+        microphonePermission != PackageManager.PERMISSION_GRANTED ||
+        storagePermission != PackageManager.PERMISSION_GRANTED
     ) {
+
         Toast.makeText(
             this,
-            "Autorise d'abord le microphone.",
+            "Autorise le microphone et le stockage.",
             Toast.LENGTH_LONG
         ).show()
 
         requestPermissions(
-            arrayOf(Manifest.permission.RECORD_AUDIO),
+            arrayOf(
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ),
             100
         )
 
         return
+    }
     }
 
     try {
