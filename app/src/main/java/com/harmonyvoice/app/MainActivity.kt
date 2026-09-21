@@ -719,7 +719,7 @@ class MainActivity : Activity() {
 
             outputFile = File(
                 directory,
-                "ma_voix.3gp"
+                "ma_voix_${System.currentTimeMillis()}.3gp"
             ).absolutePath
 
             recorder = MediaRecorder()
