@@ -6,9 +6,11 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.content.ContentValues
+import android.content.Intent
 import android.provider.MediaStore
 import android.os.Build
 import android.os.Bundle
@@ -29,6 +31,7 @@ class MainActivity : Activity() {
     private var mediaPlayer: MediaPlayer? = null
 
     private var outputFile = ""
+    private var selectedAudioUri: Uri? = null
     private var outputPfd: android.os.ParcelFileDescriptor? = null
     private var isRecording = false
     private var isPlaying = false
@@ -336,6 +339,38 @@ class MainActivity : Activity() {
         )
 
         addSpace(content, 10)
+        
+        // =====================================================
+// BOUTON UTILISER UNE VOIX EXISTANTE
+// =====================================================
+
+val existingVoiceButton = createTextButton(
+    "📂  UTILISER UNE VOIX EXISTANTE",
+    Color.rgb(45, 45, 55),
+    Color.WHITE,
+    14f,
+    56
+)
+
+existingVoiceButton.setOnClickListener {
+
+    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+
+    intent.addCategory(Intent.CATEGORY_OPENABLE)
+    intent.type = "audio/*"
+
+    startActivityForResult(intent, 200)
+}
+
+content.addView(
+    existingVoiceButton,
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    )
+)
+
+addSpace(content, 10)
 
         // =====================================================
         // BOUTON ÉCOUTER
@@ -743,6 +778,7 @@ if (!directory.exists()) {
             return
         }
 
+        selectedAudioUri = null
         outputFile = File(
             directory,
             "ma_voix_${System.currentTimeMillis()}.3gp"
@@ -849,13 +885,40 @@ if (!directory.exists()) {
 // ÉCOUTER L'ENREGISTREMENT
 // ---------------------------------------------------------
 
-private fun playRecording() {
+override fun onActivityResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?
+) {
+    super.onActivityResult(requestCode, resultCode, data)
+
+    if (requestCode == 200 && resultCode == Activity.RESULT_OK) {
+
+        val uri = data?.data
+
+        if (uri != null) {
+
+            selectedAudioUri = uri
+            outputFile = uri.toString()
+
+            listenButton.isEnabled = true
+            listenButton.alpha = 1.0f
+
+            Toast.makeText(
+                this,
+                "Voix existante sélectionnée.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+}
+  private fun playRecording() {
 
     if (outputFile.isEmpty()) {
 
         Toast.makeText(
             this,
-            "Aucun enregistrement disponible.",
+            "Aucune voix disponible.",
             Toast.LENGTH_SHORT
         ).show()
 
@@ -886,7 +949,22 @@ private fun playRecording() {
 
         mediaPlayer = MediaPlayer()
 
-        mediaPlayer?.setDataSource(outputFile)
+        // =====================================================
+        // LECTURE DE LA VOIX
+        // FICHIER ENREGISTRÉ OU FICHIER SÉLECTIONNÉ
+        // =====================================================
+
+        if (selectedAudioUri != null) {
+
+            mediaPlayer?.setDataSource(
+                this,
+                selectedAudioUri!!
+            )
+
+        } else {
+
+            mediaPlayer?.setDataSource(outputFile)
+        }
 
         mediaPlayer?.setOnCompletionListener {
 
@@ -916,11 +994,11 @@ private fun playRecording() {
 
         Toast.makeText(
             this,
-            "Impossible de lire l'enregistrement.",
+            "Impossible de lire la voix sélectionnée.",
             Toast.LENGTH_LONG
         ).show()
     }
-}
+  }          
 
 // ---------------------------------------------------------
 // NETTOYAGE
