@@ -825,12 +825,25 @@ if (!directory.exists()) {
     listenButton.isEnabled = true
     listenButton.alpha = 1.0f
 
-    Toast.makeText(
-        this,
-        "Enregistrement terminé",
-        Toast.LENGTH_SHORT
-    ).show()
-}
+    val file = File(outputFile)
+
+    if (file.exists() && file.length() > 0) {
+
+        Toast.makeText(
+            this,
+            "Enregistrement sauvegardé dans :\n$outputFile",
+            Toast.LENGTH_LONG
+        ).show()
+
+    } else {
+
+        Toast.makeText(
+            this,
+            "ERREUR : le fichier n'a pas été créé.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+    }
 
 // ---------------------------------------------------------
 // ÉCOUTER L'ENREGISTREMENT
