@@ -855,8 +855,6 @@ private fun playRecording() {
         return
     }
 
-    }
-
     if (isPlaying) {
 
         try {
