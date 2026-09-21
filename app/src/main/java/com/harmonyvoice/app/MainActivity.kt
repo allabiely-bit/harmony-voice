@@ -687,126 +687,97 @@ class MainActivity : Activity() {
 
     private fun startRecording() {
 
-        if (
-            android.os.Build.VERSION.SDK_INT >= 23 &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                    != PackageManager.PERMISSION_GRANTED
-        ) {
+    if (
+        android.os.Build.VERSION.SDK_INT >= 23 &&
+        checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+        != PackageManager.PERMISSION_GRANTED
+    ) {
+        Toast.makeText(
+            this,
+            "Autorise d'abord le microphone.",
+            Toast.LENGTH_LONG
+        ).show()
+
+        requestPermissions(
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            100
+        )
+
+        return
+    }
+
+    try {
+
+        val directory = getExternalFilesDir(null)
+
+        if (directory == null) {
             Toast.makeText(
                 this,
-                "Autorise d'abord le microphone.",
+                "Impossible d'utiliser le stockage.",
                 Toast.LENGTH_LONG
             ).show()
-
-            requestPermissions(
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                100
-            )
 
             return
         }
 
-        try {
+        outputFile = File(
+            directory,
+            "ma_voix_${System.currentTimeMillis()}.3gp"
+        ).absolutePath
 
-            val fileName = "ma_voix_${System.currentTimeMillis()}.3gp"
+        recorder = MediaRecorder()
 
-val values = ContentValues().apply {
-    put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
-    put(MediaStore.Audio.Media.MIME_TYPE, "audio/3gpp")
-    put(
-        MediaStore.Audio.Media.RELATIVE_PATH,
-        "Music/HARMONY VOICE"
-    )
-}
+        recorder?.setAudioSource(
+            MediaRecorder.AudioSource.MIC
+        )
 
-val uri = contentResolver.insert(
-    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-    values
-)
+        recorder?.setOutputFormat(
+            MediaRecorder.OutputFormat.THREE_GPP
+        )
 
-if (uri == null) {
-    Toast.makeText(
-        this,
-        "Impossible de sauvegarder l'enregistrement.",
-        Toast.LENGTH_LONG
-    ).show()
-    return
-}
+        recorder?.setAudioEncoder(
+            MediaRecorder.AudioEncoder.AMR_NB
+        )
 
-outputFile = uri.toString()
+        recorder?.setOutputFile(outputFile)
 
-            recorder = MediaRecorder()
+        recorder?.prepare()
+        recorder?.start()
 
-            recorder?.setAudioSource(
-                MediaRecorder.AudioSource.MIC
-            )
+        isRecording = true
+        seconds = 0
 
-            recorder?.setOutputFormat(
-                MediaRecorder.OutputFormat.THREE_GPP
-            )
+        timerText.text = "00:00"
 
-            recorder?.setAudioEncoder(
-                MediaRecorder.AudioEncoder.AMR_NB
-            )
+        recordButton.text =
+            "⏹  ARRÊTER L'ENREGISTREMENT"
 
-            outputPfd = contentResolver.openFileDescriptor(
-    android.net.Uri.parse(outputFile),
-    "w"
-)
+        listenButton.isEnabled = false
+        listenButton.alpha = 0.45f
 
-if (outputPfd == null) {
-    Toast.makeText(
-        this,
-        "Impossible d'ouvrir le fichier audio.",
-        Toast.LENGTH_LONG
-    ).show()
-    return
-}
+        handler.post(timerRunnable)
 
-recorder?.setOutputFile(outputPfd!!.fileDescriptor)
+        Toast.makeText(
+            this,
+            "Enregistrement en cours...",
+            Toast.LENGTH_SHORT
+        ).show()
 
-            recorder?.prepare()
-            recorder?.start()
+    } catch (e: Exception) {
 
-            isRecording = true
-            seconds = 0
+        recorder?.release()
+        recorder = null
 
-            timerText.text = "00:00"
+        isRecording = false
 
-            recordButton.text =
-                "⏹  ARRÊTER L'ENREGISTREMENT"
-
-            listenButton.isEnabled = false
-            listenButton.alpha = 0.45f
-
-            handler.post(timerRunnable)
-
-            Toast.makeText(
-                this,
-                "Enregistrement en cours...",
-                Toast.LENGTH_SHORT
-            ).show()
-
-        } catch (e: Exception) {
-
-            recorder?.release()
-            recorder = null
-            try {
-    outputPfd?.close()
-} catch (e: Exception) {
-}
-
-outputPfd = null
-
-            isRecording = false
-
-            Toast.makeText(
-                this,
-                "Impossible de démarrer l'enregistrement.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
+        Toast.makeText(
+            this,
+            "Impossible de démarrer l'enregistrement.",
+            Toast.LENGTH_LONG
+        ).show()
     }
+    }
+
 
     // ---------------------------------------------------------
     // ARRÊTER L'ENREGISTREMENT
