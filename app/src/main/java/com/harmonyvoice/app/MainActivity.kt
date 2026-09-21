@@ -881,7 +881,10 @@ private fun playRecording() {
 
     try {
 
-        mediaPlayer?.setDataSource(outputFile)
+        mediaPlayer?.setDataSource(
+    this,
+    android.net.Uri.parse(outputFile)
+)
 
         mediaPlayer?.setOnCompletionListener {
 
