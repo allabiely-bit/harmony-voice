@@ -8,6 +8,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.content.ContentValues
+import android.provider.MediaStore
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +29,7 @@ class MainActivity : Activity() {
     private var mediaPlayer: MediaPlayer? = null
 
     private var outputFile = ""
+    private var outputPfd: android.os.ParcelFileDescriptor? = null
     private var isRecording = false
     private var isPlaying = false
 
@@ -704,23 +708,32 @@ class MainActivity : Activity() {
 
         try {
 
-            val directory = getExternalFilesDir(null)
+            val fileName = "ma_voix_${System.currentTimeMillis()}.3gp"
 
-            if (directory == null) {
+val values = ContentValues().apply {
+    put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+    put(MediaStore.Audio.Media.MIME_TYPE, "audio/3gpp")
+    put(
+        MediaStore.Audio.Media.RELATIVE_PATH,
+        "Music/HARMONY VOICE"
+    )
+}
 
-                Toast.makeText(
-                    this,
-                    "Impossible d'utiliser le stockage.",
-                    Toast.LENGTH_LONG
-                ).show()
+val uri = contentResolver.insert(
+    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+    values
+)
 
-                return
-            }
+if (uri == null) {
+    Toast.makeText(
+        this,
+        "Impossible de sauvegarder l'enregistrement.",
+        Toast.LENGTH_LONG
+    ).show()
+    return
+}
 
-            outputFile = File(
-                directory,
-                "ma_voix_${System.currentTimeMillis()}.3gp"
-            ).absolutePath
+outputFile = uri.toString()
 
             recorder = MediaRecorder()
 
@@ -736,7 +749,21 @@ class MainActivity : Activity() {
                 MediaRecorder.AudioEncoder.AMR_NB
             )
 
-            recorder?.setOutputFile(outputFile)
+            outputPfd = contentResolver.openFileDescriptor(
+    android.net.Uri.parse(outputFile),
+    "w"
+)
+
+if (outputPfd == null) {
+    Toast.makeText(
+        this,
+        "Impossible d'ouvrir le fichier audio.",
+        Toast.LENGTH_LONG
+    ).show()
+    return
+}
+
+recorder?.setOutputFile(outputPfd!!.fileDescriptor)
 
             recorder?.prepare()
             recorder?.start()
@@ -764,6 +791,12 @@ class MainActivity : Activity() {
 
             recorder?.release()
             recorder = null
+            try {
+    outputPfd?.close()
+} catch (e: Exception) {
+}
+
+outputPfd = null
 
             isRecording = false
 
@@ -822,15 +855,6 @@ private fun playRecording() {
         return
     }
 
-    if (!File(outputFile).exists()) {
-
-        Toast.makeText(
-            this,
-            "Aucun enregistrement disponible.",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        return
     }
 
     if (isPlaying) {
@@ -854,7 +878,10 @@ private fun playRecording() {
 
         mediaPlayer = MediaPlayer()
 
-        mediaPlayer?.setDataSource(outputFile)
+        mediaPlayer?.setDataSource(
+    this,
+    android.net.Uri.parse(outputFile)
+)
 
         mediaPlayer?.setOnCompletionListener {
 
@@ -902,6 +929,12 @@ override fun onDestroy() {
     }
 
     recorder = null
+    try {
+    outputPfd?.close()
+} catch (e: Exception) {
+}
+
+outputPfd = null
 
     try {
         mediaPlayer?.release()
