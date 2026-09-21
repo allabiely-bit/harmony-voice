@@ -881,10 +881,12 @@ private fun playRecording() {
 
     try {
 
-        mediaPlayer?.setDataSource(
-    this,
-    android.net.Uri.parse(outputFile)
-)
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        mediaPlayer = MediaPlayer()
+
+        mediaPlayer?.setDataSource(outputFile)
 
         mediaPlayer?.setOnCompletionListener {
 
@@ -909,6 +911,8 @@ private fun playRecording() {
         mediaPlayer = null
 
         isPlaying = false
+
+        listenButton.text = "▶  ÉCOUTER MA VOIX"
 
         Toast.makeText(
             this,
