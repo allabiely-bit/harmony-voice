@@ -708,7 +708,18 @@ class MainActivity : Activity() {
 
     try {
 
-        val directory = getExternalFilesDir(null)
+        val musicDirectory = android.os.Environment.getExternalStoragePublicDirectory(
+    android.os.Environment.DIRECTORY_MUSIC
+)
+
+val directory = File(
+    musicDirectory,
+    "HARMONY VOICE"
+)
+
+if (!directory.exists()) {
+    directory.mkdirs()
+}
 
         if (directory == null) {
             Toast.makeText(
