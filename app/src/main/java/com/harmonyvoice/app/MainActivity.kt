@@ -924,7 +924,8 @@ outputFile = File(
 
     listenChoice.text = "▶  ÉCOUTER"
 
-    listenChoice.textSize = 16f
+    listenChoice.textSize = 14f
+   listenChoice.gravity = Gravity.CENTER
 
     layout.addView(
     listenChoice,
@@ -986,7 +987,8 @@ saveChoice.isSingleLine = false
 
     restartChoice.text = "🔄  RECOMMENCER"
 
-    restartChoice.textSize = 16f
+    restartChoice.textSize = 14f
+    restartChoice.gravity = Gravity.CENTER
 
     layout.addView(
         restartChoice,
