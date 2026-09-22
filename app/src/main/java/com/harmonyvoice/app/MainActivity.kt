@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.widget.Button
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -843,78 +844,232 @@ outputFile = File(
     listenButton.isEnabled = true
     listenButton.alpha = 1.0f
 
- val file = File(outputFile)
+    val file = File(outputFile)
 
-if (file.exists() && file.length() > 0) {
-
-    AlertDialog.Builder(this)
-    .setTitle("🎵 Ta voix est prête")
-    .setMessage(
-        "Choisis ce que tu veux faire avec ton enregistrement."
-    )
-    .setItems(
-        arrayOf(
-            "▶  ÉCOUTER",
-            "🎶  UTILISER CETTE VOIX POUR LES HARMONIES",
-            "💾  SAUVEGARDER DANS LE TÉLÉPHONE",
-            "🔄  RECOMMENCER"
-        )
-    ) { dialog, which ->
-
-        when (which) {
-
-            0 -> {
-                playRecording()
-            }
-
-            1 -> {
-                // La voix reste temporairement dans HARMONY VOICE.
-                // Elle sera utilisée pour créer les harmonies.
-                Toast.makeText(
-                    this,
-                    "🎶 Voix prête pour les harmonies.",
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                dialog.dismiss()
-            }
-
-            2 -> {
-                saveRecordingToPhone()
-            }
-
-            3 -> {
-
-                try {
-                    file.delete()
-                } catch (e: Exception) {
-                }
-
-                outputFile = ""
-
-                listenButton.isEnabled = false
-                listenButton.alpha = 0.45f
-
-                Toast.makeText(
-                    this,
-                    "Enregistrement supprimé.",
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                dialog.dismiss()
-            }
-        }
-    }
-    .show()
-        } else {
+    if (!file.exists() || file.length() == 0L) {
 
         Toast.makeText(
             this,
             "ERREUR : l'enregistrement n'a pas été créé.",
             Toast.LENGTH_LONG
         ).show()
+
+        return
     }
+
+    // =====================================================
+    // PANNEAU : TA VOIX EST PRÊTE
+    // =====================================================
+
+    val layout = LinearLayout(this)
+
+    layout.orientation = LinearLayout.VERTICAL
+
+    layout.setPadding(
+        40,
+        30,
+        40,
+        20
+    )
+
+    val title = TextView(this)
+
+    title.text = "🎵  Ta voix est prête"
+
+    title.textSize = 22f
+
+    title.setTextColor(Color.BLACK)
+
+    title.gravity = Gravity.CENTER
+
+    layout.addView(
+        title,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    val message = TextView(this)
+
+    message.text =
+        "Choisis ce que tu veux faire avec ton enregistrement."
+
+    message.textSize = 15f
+
+    message.setTextColor(Color.DKGRAY)
+
+    message.gravity = Gravity.CENTER
+
+    message.setPadding(
+        0,
+        15,
+        0,
+        25
+    )
+
+    layout.addView(
+        message,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    // =====================================================
+    // BOUTON ÉCOUTER
+    // =====================================================
+
+    val listenChoice = Button(this)
+
+    listenChoice.text = "▶  ÉCOUTER"
+
+    listenChoice.textSize = 16f
+
+    layout.addView(
+        listenChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            60
+        )
+    )
+
+    // =====================================================
+    // BOUTON UTILISER POUR LES HARMONIES
+    // =====================================================
+
+    val harmonyChoice = Button(this)
+
+    harmonyChoice.text =
+        "🎶  UTILISER CETTE VOIX POUR LES HARMONIES"
+
+    harmonyChoice.textSize = 15f
+
+    layout.addView(
+        harmonyChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            70
+        )
+    )
+
+    // =====================================================
+    // BOUTON SAUVEGARDER
+    // =====================================================
+
+    val saveChoice = Button(this)
+
+    saveChoice.text =
+        "💾  SAUVEGARDER DANS LE TÉLÉPHONE"
+
+    saveChoice.textSize = 15f
+
+    layout.addView(
+        saveChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            70
+        )
+    )
+
+    // =====================================================
+    // BOUTON RECOMMENCER
+    // =====================================================
+
+    val restartChoice = Button(this)
+
+    restartChoice.text = "🔄  RECOMMENCER"
+
+    restartChoice.textSize = 16f
+
+    layout.addView(
+        restartChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            60
+        )
+    )
+
+    // =====================================================
+    // CRÉATION DE LA FENÊTRE
+    // =====================================================
+
+    val dialog = AlertDialog.Builder(this)
+        .setView(layout)
+        .create()
+
+    // Empêche la fenêtre de disparaître
+    // lorsqu'on touche à l'extérieur.
+    dialog.setCanceledOnTouchOutside(false)
+
+    // Empêche le bouton retour de fermer
+    // accidentellement la fenêtre.
+    dialog.setCancelable(false)
+
+    // =====================================================
+    // ÉCOUTER
+    // =====================================================
+
+    listenChoice.setOnClickListener {
+
+        dialog.dismiss()
+
+        playRecording()
     }
+
+    // =====================================================
+    // UTILISER POUR LES HARMONIES
+    // =====================================================
+
+    harmonyChoice.setOnClickListener {
+
+        dialog.dismiss()
+
+        Toast.makeText(
+            this,
+            "🎶 Voix prête pour les harmonies.",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // =====================================================
+    // SAUVEGARDER DANS LE TÉLÉPHONE
+    // =====================================================
+
+    saveChoice.setOnClickListener {
+
+        dialog.dismiss()
+
+        saveRecordingToPhone()
+    }
+
+    // =====================================================
+    // RECOMMENCER
+    // =====================================================
+
+    restartChoice.setOnClickListener {
+
+        try {
+            file.delete()
+        } catch (e: Exception) {
+        }
+
+        outputFile = ""
+
+        listenButton.isEnabled = false
+        listenButton.alpha = 0.45f
+
+        dialog.dismiss()
+
+        Toast.makeText(
+            this,
+            "Enregistrement supprimé.",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    dialog.show()
+}
     
     
 // ---------------------------------------------------------
