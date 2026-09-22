@@ -24,6 +24,7 @@ import android.widget.TextView
 import android.widget.Toast
 import java.io.File
 import java.util.Locale
+import android.app.AlertDialog
 
 class MainActivity : Activity() {
 
@@ -755,34 +756,15 @@ addSpace(content, 10)
 
     try {
 
-        val musicDirectory = android.os.Environment.getExternalStoragePublicDirectory(
-    android.os.Environment.DIRECTORY_MUSIC
-)
+        // Enregistrement temporaire dans HARMONY VOICE
+// La voix ne sera pas encore sauvegardée dans le téléphone.
 
-val directory = File(
-    musicDirectory,
-    "HARMONY VOICE"
-)
+selectedAudioUri = null
 
-if (!directory.exists()) {
-    directory.mkdirs()
-}
-
-        if (directory == null) {
-            Toast.makeText(
-                this,
-                "Impossible d'utiliser le stockage.",
-                Toast.LENGTH_LONG
-            ).show()
-
-            return
-        }
-
-        selectedAudioUri = null
-        outputFile = File(
-            directory,
-            "ma_voix_${System.currentTimeMillis()}.3gp"
-        ).absolutePath
+outputFile = File(
+    cacheDir,
+    "ma_voix_${System.currentTimeMillis()}.3gp"
+).absolutePath
 
         recorder = MediaRecorder()
 
@@ -861,26 +843,80 @@ if (!directory.exists()) {
     listenButton.isEnabled = true
     listenButton.alpha = 1.0f
 
-    val file = File(outputFile)
+ val file = File(outputFile)
 
-    if (file.exists() && file.length() > 0) {
+if (file.exists() && file.length() > 0) {
+
+    AlertDialog.Builder(this)
+    .setTitle("🎵 Ta voix est prête")
+    .setMessage(
+        "Choisis ce que tu veux faire avec ton enregistrement."
+    )
+    .setItems(
+        arrayOf(
+            "▶  ÉCOUTER",
+            "🎶  UTILISER CETTE VOIX POUR LES HARMONIES",
+            "💾  SAUVEGARDER DANS LE TÉLÉPHONE",
+            "🔄  RECOMMENCER"
+        )
+    ) { dialog, which ->
+
+        when (which) {
+
+            0 -> {
+                playRecording()
+            }
+
+            1 -> {
+                // La voix reste temporairement dans HARMONY VOICE.
+                // Elle sera utilisée pour créer les harmonies.
+                Toast.makeText(
+                    this,
+                    "🎶 Voix prête pour les harmonies.",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                dialog.dismiss()
+            }
+
+            2 -> {
+                saveRecordingToPhone()
+            }
+
+            3 -> {
+
+                try {
+                    file.delete()
+                } catch (e: Exception) {
+                }
+
+                outputFile = ""
+
+                listenButton.isEnabled = false
+                listenButton.alpha = 0.45f
+
+                Toast.makeText(
+                    this,
+                    "Enregistrement supprimé.",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                dialog.dismiss()
+            }
+        }
+    }
+    .show()
+        } else {
 
         Toast.makeText(
             this,
-            "Enregistrement sauvegardé dans :\n$outputFile",
-            Toast.LENGTH_LONG
-        ).show()
-
-    } else {
-
-        Toast.makeText(
-            this,
-            "ERREUR : le fichier n'a pas été créé.",
+            "ERREUR : l'enregistrement n'a pas été créé.",
             Toast.LENGTH_LONG
         ).show()
     }
     }
-
+    
+    
 // ---------------------------------------------------------
 // ÉCOUTER L'ENREGISTREMENT
 // ---------------------------------------------------------
@@ -998,7 +1034,74 @@ override fun onActivityResult(
             Toast.LENGTH_LONG
         ).show()
     }
-  }          
+  }    
+
+  private fun saveRecordingToPhone() {
+
+    if (outputFile.isEmpty()) {
+        Toast.makeText(
+            this,
+            "Aucune voix à sauvegarder.",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
+    }
+
+    try {
+
+        val sourceFile = File(outputFile)
+
+        if (!sourceFile.exists() || sourceFile.length() == 0L) {
+            Toast.makeText(
+                this,
+                "L'enregistrement est introuvable.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val musicDirectory =
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_MUSIC
+            )
+
+        val directory = File(
+            musicDirectory,
+            "HARMONY VOICE"
+        )
+
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+
+        val savedFile = File(
+            directory,
+            "ma_voix_${System.currentTimeMillis()}.3gp"
+        )
+
+        java.io.FileInputStream(sourceFile).use { input ->
+
+            java.io.FileOutputStream(savedFile).use { output ->
+
+                input.copyTo(output)
+            }
+        }
+
+        Toast.makeText(
+            this,
+            "✅ Ta voix a été sauvegardée dans Music/HARMONY VOICE.",
+            Toast.LENGTH_LONG
+        ).show()
+
+    } catch (e: Exception) {
+
+        Toast.makeText(
+            this,
+            "Erreur lors de la sauvegarde : ${e.message}",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+  }
 
 // ---------------------------------------------------------
 // NETTOYAGE
