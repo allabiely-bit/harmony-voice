@@ -65,6 +65,26 @@ jobs:
             unzip -l /tmp/soundtouch/classes.jar \
               | grep -E "com/tianscar/soundtouch/.*\\.class" \
               || true
+           done
+      - name: Inspecter SoundTouch CORE
+        run: |
+          echo "===== SOUND TOUCH CORE JAR ====="
+
+          find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f -name "soundtouch-jni-core-1.1.1.jar" \
+            -print
+
+          for jar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f -name "soundtouch-jni-core-1.1.1.jar"); do
+
+            echo "===== JAR ====="
+            echo "$jar"
+
+            echo "===== CONTENU CORE ====="
+
+            unzip -l "$jar" \
+              | grep -E "com/tianscar/soundtouch/.*\\.class" \
+              || true
 
           done
       - name: Compiler HARMONY VOICE
