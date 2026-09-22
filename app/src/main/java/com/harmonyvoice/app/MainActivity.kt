@@ -26,6 +26,10 @@ import android.widget.Toast
 import java.io.File
 import java.util.Locale
 import android.app.AlertDialog
+import android.media.AudioFormat
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
 
 class MainActivity : Activity() {
 
@@ -1306,4 +1310,192 @@ outputPfd = null
 
         super.onDestroy()
 }
+
+        private fun decodeAudioToPcm(filePath: String): ShortArray? {
+
+    var extractor: MediaExtractor? = null
+    var codec: MediaCodec? = null
+
+    try {
+
+        extractor = MediaExtractor()
+        extractor.setDataSource(filePath)
+
+        var audioTrack = -1
+
+        for (i in 0 until extractor.trackCount) {
+
+            val format = extractor.getTrackFormat(i)
+
+            val mime = format.getString(MediaFormat.KEY_MIME)
+
+            if (mime != null && mime.startsWith("audio/")) {
+                audioTrack = i
+                break
+            }
+        }
+
+        if (audioTrack < 0) {
+            return null
+        }
+
+        extractor.selectTrack(audioTrack)
+
+        val format = extractor.getTrackFormat(audioTrack)
+
+        val mime =
+            format.getString(MediaFormat.KEY_MIME)
+                ?: return null
+
+        codec = MediaCodec.createDecoderByType(mime)
+
+        codec.configure(
+            format,
+            null,
+            null,
+            0
+        )
+
+        codec.start()
+
+        val pcmData = ArrayList<Short>()
+
+        val bufferInfo = MediaCodec.BufferInfo()
+
+        var inputFinished = false
+        var outputFinished = false
+
+        while (!outputFinished) {
+
+            if (!inputFinished) {
+
+                val inputIndex =
+                    codec.dequeueInputBuffer(10000)
+
+                if (inputIndex >= 0) {
+
+                    val inputBuffer =
+                        codec.getInputBuffer(inputIndex)
+
+                    if (inputBuffer != null) {
+
+                        val sampleSize =
+                            extractor.readSampleData(
+                                inputBuffer,
+                                0
+                            )
+
+                        if (sampleSize < 0) {
+
+                            codec.queueInputBuffer(
+                                inputIndex,
+                                0,
+                                0,
+                                0,
+                                MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                            )
+
+                            inputFinished = true
+
+                        } else {
+
+                            codec.queueInputBuffer(
+                                inputIndex,
+                                0,
+                                sampleSize,
+                                extractor.sampleTime,
+                                0
+                            )
+
+                            extractor.advance()
+                        }
+                    }
+                }
+            }
+
+            val outputIndex =
+                codec.dequeueOutputBuffer(
+                    bufferInfo,
+                    10000
+                )
+
+            if (outputIndex >= 0) {
+
+                val outputBuffer =
+                    codec.getOutputBuffer(outputIndex)
+
+                if (outputBuffer != null &&
+                    bufferInfo.size > 0
+                ) {
+
+                    outputBuffer.position(
+                        bufferInfo.offset
+                    )
+
+                    outputBuffer.limit(
+                        bufferInfo.offset +
+                                bufferInfo.size
+                    )
+
+                    outputBuffer.order(
+                        java.nio.ByteOrder.LITTLE_ENDIAN
+                    )
+
+                    while (
+                        outputBuffer.remaining() >= 2
+                    ) {
+
+                        pcmData.add(
+                            outputBuffer.short
+                        )
+                    }
+                }
+
+                codec.releaseOutputBuffer(
+                    outputIndex,
+                    false
+                )
+
+                if (
+                    bufferInfo.flags and
+                    MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+                ) {
+
+                    outputFinished = true
+                }
+            }
+        }
+
+        codec.stop()
+        codec.release()
+        codec = null
+
+        extractor.release()
+        extractor = null
+
+        return ShortArray(pcmData.size) { index ->
+            pcmData[index]
+        }
+
+    } catch (e: Exception) {
+
+        try {
+            codec?.stop()
+        } catch (_: Exception) {
+        }
+
+        try {
+            codec?.release()
+        } catch (_: Exception) {
+        }
+
+        try {
+            extractor?.release()
+        } catch (_: Exception) {
+        }
+
+        return null
+    }
+        }
+                            
 }
