@@ -24,7 +24,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
       - name: Inspecter les signatures SoundTouch
         run: |
           gradle :app:dependencies --configuration debugCompileClasspath
@@ -37,6 +36,9 @@ jobs:
 
             echo "===== JNI SYMBOLS ====="
             nm -D /tmp/libsoundtouchjni.so | grep -E "Java_com_tianscar_soundtouch_SoundTouch|Java_com_tianscar_soundtouch_BPMDetector" || true
+
+            echo "===== JNI STRINGS ====="
+            strings /tmp/libsoundtouchjni.so | grep -E "SoundTouch|BPMDetector|setPitch|setTempo|putSamples|receiveSamples|createInstance" || true
 
             echo "===== AAR CONTENT ====="
             unzip -l "$aar"
