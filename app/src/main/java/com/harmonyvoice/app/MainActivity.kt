@@ -34,6 +34,7 @@ class MainActivity : Activity() {
 
     private var outputFile = ""
     private var selectedAudioUri: Uri? = null
+    private var selectedVoicePart = "SOPRANO"
     private var outputPfd: android.os.ParcelFileDescriptor? = null
     private var isRecording = false
     private var isPlaying = false
@@ -439,11 +440,14 @@ addSpace(content, 10)
         )
 
         sopranoButton.setOnClickListener {
-            Toast.makeText(
-                this,
-                "Partie Soprano sélectionnée",
-                Toast.LENGTH_SHORT
-            ).show()
+
+    selectedVoicePart = "SOPRANO"
+
+    Toast.makeText(
+        this,
+        "Partie Soprano sélectionnée",
+        Toast.LENGTH_SHORT
+    ).show()
         }
 
         content.addView(
@@ -469,11 +473,14 @@ addSpace(content, 10)
         )
 
         altoButton.setOnClickListener {
-            Toast.makeText(
-                this,
-                "Partie Alto sélectionnée",
-                Toast.LENGTH_SHORT
-            ).show()
+
+    selectedVoicePart = "ALTO"
+
+    Toast.makeText(
+        this,
+        "Partie Alto sélectionnée",
+        Toast.LENGTH_SHORT
+    ).show()
         }
 
         content.addView(
@@ -499,11 +506,14 @@ addSpace(content, 10)
         )
 
         tenorButton.setOnClickListener {
-            Toast.makeText(
-                this,
-                "Partie Ténor sélectionnée",
-                Toast.LENGTH_SHORT
-            ).show()
+
+    selectedVoicePart = "TÉNOR"
+
+    Toast.makeText(
+        this,
+        "Partie Ténor sélectionnée",
+        Toast.LENGTH_SHORT
+    ).show()
         }
 
         content.addView(
