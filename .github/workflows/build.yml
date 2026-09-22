@@ -19,29 +19,30 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Construire l'application
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Inspecter SoundTouch
+
+      - name: Inspecter SoundTouch JNI
         run: |
           gradle :app:dependencies --configuration debugCompileClasspath
 
           for aar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch -name "*.aar"); do
             echo "===== SOUND TOUCH AAR ====="
             echo "$aar"
-            unzip -l "$aar" | grep -E "classes.jar|\.so$"
 
-            unzip -p "$aar" classes.jar > /tmp/soundtouch-classes.jar
+            unzip -p "$aar" jni/arm64-v8a/libsoundtouchjni.so > /tmp/libsoundtouchjni.so
 
-            echo "===== CLASSES SOUND TOUCH ====="
-            jar tf /tmp/soundtouch-classes.jar | grep -E "com/tianscar|soundtouch"
+            echo "===== JNI SYMBOLS ====="
+
+            nm -D /tmp/libsoundtouchjni.so | grep -E "Java_|JNI_OnLoad|SoundTouch" || true
           done
 
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
-  
-        
+
       - name: Publier l'APK
         uses: actions/upload-artifact@v4
         with:
