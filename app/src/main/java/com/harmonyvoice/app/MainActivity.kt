@@ -922,7 +922,7 @@ outputFile = File(
 
     val listenChoice = Button(this)
 
-    listenChoice.text = "▶  ÉCOUTER"
+    listenChoice.text = "ÉCOUTER"
 
     listenChoice.textSize = 14f
    listenChoice.gravity = Gravity.CENTER
@@ -985,7 +985,7 @@ saveChoice.isSingleLine = false
 
     val restartChoice = Button(this)
 
-    restartChoice.text = "🔄  RECOMMENCER"
+    restartChoice.text = "RECOMMENCER"
 
     restartChoice.textSize = 14f
     restartChoice.gravity = Gravity.CENTER
