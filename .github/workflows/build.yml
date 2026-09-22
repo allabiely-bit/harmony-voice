@@ -87,6 +87,16 @@ jobs:
               || true
 
           done
+      - name: Inspecter les méthodes SoundTouch
+        run: |
+          echo "===== MÉTHODES SOUND TOUCH ====="
+
+          JAR=$(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f -name "soundtouch-jni-core-1.1.1.jar" \
+            | head -n 1)
+
+          javap -classpath "$JAR" -public \
+            com.tianscar.soundtouch.SoundTouch
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
 
