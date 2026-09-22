@@ -30,11 +30,25 @@ import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.AudioRecord
+import android.media.AudioTrack
+import java.io.BufferedOutputStream
+import java.io.FileOutputStream
+import java.io.DataOutputStream
 
 class MainActivity : Activity() {
 
     private var recorder: MediaRecorder? = null
     private var mediaPlayer: MediaPlayer? = null
+    
+    private var audioRecord: AudioRecord? = null
+    private var recordingThread: Thread? = null
+    private var pcmOutputFile = ""
+    private var isPcmRecording = false
+    
+    private val audioSampleRate = 44100
+    private val audioChannelConfig = AudioFormat.CHANNEL_IN_MONO
+    private val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
 
     private var outputFile = ""
     private var selectedAudioUri: Uri? = null
@@ -1124,6 +1138,168 @@ override fun onActivityResult(
             ).show()
         }
     }
+}
+private fun startPcmRecording() {
+
+    try {
+
+        val minBufferSize = AudioRecord.getMinBufferSize(
+            audioSampleRate,
+            audioChannelConfig,
+            audioEncoding
+        )
+
+        if (minBufferSize <= 0) {
+            Toast.makeText(
+                this,
+                "Impossible de préparer l'enregistrement audio.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val bufferSize = minBufferSize * 2
+
+        pcmOutputFile = File(
+            cacheDir,
+            "ma_voix_${System.currentTimeMillis()}.pcm"
+        ).absolutePath
+
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            audioSampleRate,
+            audioChannelConfig,
+            audioEncoding,
+            bufferSize
+        )
+
+        audioRecord?.startRecording()
+
+        isPcmRecording = true
+
+        recordingThread = Thread {
+
+            val buffer = ShortArray(bufferSize / 2)
+
+            try {
+
+                FileOutputStream(pcmOutputFile).use { output ->
+
+                    while (isPcmRecording) {
+
+                        val read = audioRecord?.read(
+                            buffer,
+                            0,
+                            buffer.size
+                        ) ?: 0
+
+                        if (read > 0) {
+
+                            val bytes = ByteArray(read * 2)
+
+                            for (i in 0 until read) {
+
+                                val sample = buffer[i].toInt()
+
+                                bytes[i * 2] =
+                                    (sample and 0xFF).toByte()
+
+                                bytes[i * 2 + 1] =
+                                    ((sample shr 8) and 0xFF).toByte()
+                            }
+
+                            output.write(bytes)
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+
+                runOnUiThread {
+
+                    Toast.makeText(
+                        this,
+                        "Erreur pendant l'enregistrement audio.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        recordingThread?.start()
+
+        Toast.makeText(
+            this,
+            "Enregistrement PCM en cours...",
+            Toast.LENGTH_SHORT
+        ).show()
+
+    } catch (e: Exception) {
+
+        try {
+            audioRecord?.release()
+        } catch (_: Exception) {
+        }
+
+        audioRecord = null
+
+        Toast.makeText(
+            this,
+            "Impossible de démarrer l'enregistrement.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+  }
+  private fun stopPcmRecording() {
+
+    isPcmRecording = false
+
+    try {
+        recordingThread?.join(1000)
+    } catch (_: Exception) {
+    }
+
+    recordingThread = null
+
+    try {
+        audioRecord?.stop()
+    } catch (_: Exception) {
+    }
+
+    try {
+        audioRecord?.release()
+    } catch (_: Exception) {
+    }
+
+    audioRecord = null
+
+    if (pcmOutputFile.isEmpty()) {
+        Toast.makeText(
+            this,
+            "Aucun enregistrement PCM disponible.",
+            Toast.LENGTH_LONG
+        ).show()
+        return
+    }
+
+    val file = File(pcmOutputFile)
+
+    if (!file.exists() || file.length() == 0L) {
+
+        Toast.makeText(
+            this,
+            "L'enregistrement PCM n'a pas été créé.",
+            Toast.LENGTH_LONG
+        ).show()
+
+        return
+    }
+
+    Toast.makeText(
+        this,
+        "✅ Enregistrement PCM terminé.",
+        Toast.LENGTH_SHORT
+    ).show()
 }
   private fun playRecording() {
 
