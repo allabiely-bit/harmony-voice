@@ -46,6 +46,27 @@ jobs:
           done
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
+      - name: Inspecter le JAR Java SoundTouch
+        run: |
+          echo "===== JAR JAVA SOUND TOUCH ====="
+
+          find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f \
+            \( -name "*.jar" -o -name "*.aar" \) \
+            | sort
+
+          echo "===== CLASSES JAVAS TROUVEES ====="
+
+          for jar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f -name "*.jar"); do
+
+            echo "===== $jar ====="
+
+            unzip -l "$jar" \
+              | grep -E "SoundTouch|BPMDetector|\\.class" \
+              || true
+
+          done
 
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
