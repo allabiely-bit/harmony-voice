@@ -26,23 +26,25 @@ jobs:
           gradle-version: '8.9'
       - name: Inspecter les signatures SoundTouch
         run: |
-          gradle :app:dependencies --configuration debugCompileClasspath
+          ...
+      
+      - name: Inspecter le JAR Java SoundTouch
+        run: |
+          mkdir -p /tmp/soundtouch
 
-          for aar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch -name "*.aar"); do
-            echo "===== SOUND TOUCH AAR ====="
-            echo "$aar"
+          curl -L \
+            -o /tmp/soundtouch/soundtouch-jni-javase-1.1.1.jar \
+            https://repo1.maven.org/maven2/com/tianscar/soundtouch-jni-javase/1.1.1/soundtouch-jni-javase-1.1.1.jar
 
-            unzip -p "$aar" jni/arm64-v8a/libsoundtouchjni.so > /tmp/libsoundtouchjni.so
+          echo "===== SOUND TOUCH JAVASE JAR ====="
+          ls -lh /tmp/soundtouch/soundtouch-jni-javase-1.1.1.jar
 
-            echo "===== JNI SYMBOLS ====="
-            nm -D /tmp/libsoundtouchjni.so | grep -E "Java_com_tianscar_soundtouch_SoundTouch|Java_com_tianscar_soundtouch_BPMDetector" || true
+          echo "===== SOUND TOUCH JAVA CLASSES ====="
+          unzip -l /tmp/soundtouch/soundtouch-jni-javase-1.1.1.jar \
+            | grep -E "SoundTouch|BPMDetector|\\.class"
 
-            echo "===== JNI STRINGS ====="
-            strings /tmp/libsoundtouchjni.so | grep -E "SoundTouch|BPMDetector|setPitch|setTempo|putSamples|receiveSamples|createInstance" || true
-
-            echo "===== AAR CONTENT ====="
-            unzip -l "$aar"
-          done
+      - name: Compiler HARMONY VOICE
+        run: gradle assembleDebug
 
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
