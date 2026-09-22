@@ -44,30 +44,29 @@ jobs:
             echo "===== AAR CONTENT ====="
             unzip -l "$aar"
           done
-      - name: Compiler HARMONY VOICE
-        run: gradle assembleDebug
-      - name: Inspecter le JAR Java SoundTouch
+      - name: Inspecter classes.jar SoundTouch
         run: |
-          echo "===== JAR JAVA SOUND TOUCH ====="
+          echo "===== EXTRACTION CLASSES.JAR ====="
 
-          find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
-            -type f \
-            \( -name "*.jar" -o -name "*.aar" \) \
-            | sort
+          mkdir -p /tmp/soundtouch
 
-          echo "===== CLASSES JAVAS TROUVEES ====="
+          for aar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f -name "*.aar"); do
 
-          for jar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
-            -type f -name "*.jar"); do
+            echo "AAR : $aar"
 
-            echo "===== $jar ====="
+            unzip -p "$aar" classes.jar > /tmp/soundtouch/classes.jar
 
-            unzip -l "$jar" \
-              | grep -E "SoundTouch|BPMDetector|\\.class" \
+            echo "===== CLASSES.JAR ====="
+            ls -lh /tmp/soundtouch/classes.jar
+
+            echo "===== CONTENU CLASSES.JAR ====="
+
+            unzip -l /tmp/soundtouch/classes.jar \
+              | grep -E "com/tianscar/soundtouch/.*\\.class" \
               || true
 
           done
-
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
 
