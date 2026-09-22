@@ -931,7 +931,7 @@ outputFile = File(
     listenChoice,
     LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT,
-        65
+        80
     )
 )
 
@@ -994,7 +994,7 @@ saveChoice.isSingleLine = false
         restartChoice,
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            65
+            80
         )
     )
 
