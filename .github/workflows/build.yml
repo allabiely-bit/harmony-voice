@@ -97,6 +97,24 @@ jobs:
 
           javap -classpath "$JAR" -public \
             com.tianscar.soundtouch.SoundTouch
+      - name: Vérifier le format audio
+        run: |
+          echo "===== FORMAT AUDIO ====="
+
+          JAR=$(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+            -type f -name "soundtouch-jni-core-1.1.1.jar" \
+            | head -n 1)
+
+          javap -classpath "$JAR" -c \
+            com.tianscar.soundtouch.SoundTouch \
+            | grep -E "setSampleRate|setChannels|putSamples|receiveSamplesI16" \
+            || true
+
+          echo "===== CONFIGURATION ENREGISTREMENT ====="
+
+          echo "Format : THREE_GPP"
+          echo "Codec : AMR_NB"
+          echo "Source : MICROPHONE"
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
 
