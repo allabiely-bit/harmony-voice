@@ -927,48 +927,54 @@ outputFile = File(
     listenChoice.textSize = 16f
 
     layout.addView(
-        listenChoice,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            60
-        )
+    listenChoice,
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        65
     )
+)
 
     // =====================================================
     // BOUTON UTILISER POUR LES HARMONIES
     // =====================================================
+       
+        val harmonyChoice = Button(this)
 
-    val harmonyChoice = Button(this)
+harmonyChoice.text =
+    "🎶  UTILISER CETTE VOIX\nPOUR LES HARMONIES"
 
-    harmonyChoice.text =
-        "🎶  UTILISER CETTE VOIX POUR LES HARMONIES"
+harmonyChoice.textSize = 14f
 
-    harmonyChoice.textSize = 15f
+harmonyChoice.isSingleLine = false
+ harmonyChoice.gravity = Gravity.CENTER
 
     layout.addView(
-        harmonyChoice,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            70
-        )
-    )
+    harmonyChoice,
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        80
+ )
+)
 
     // =====================================================
     // BOUTON SAUVEGARDER
     // =====================================================
 
-    val saveChoice = Button(this)
+   val saveChoice = Button(this)
 
-    saveChoice.text =
-        "💾  SAUVEGARDER DANS LE TÉLÉPHONE"
+saveChoice.text =
+    "💾  SAUVEGARDER DANS LE\nTÉLÉPHONE"
 
-    saveChoice.textSize = 15f
+saveChoice.textSize = 14f
+
+saveChoice.isSingleLine = false
+ saveChoice.gravity = Gravity.CENTER
 
     layout.addView(
         saveChoice,
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            70
+            80
         )
     )
 
@@ -986,7 +992,7 @@ outputFile = File(
         restartChoice,
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            60
+            65
         )
     )
 
