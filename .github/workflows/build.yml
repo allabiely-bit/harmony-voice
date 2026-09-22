@@ -23,11 +23,20 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
       - name: Inspecter SoundTouch
         run: |
           gradle :app:dependencies --configuration debugCompileClasspath
-          find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch -type f | sort
+
+          for aar in $(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch -name "*.aar"); do
+            echo "===== SOUND TOUCH AAR ====="
+            echo "$aar"
+            unzip -l "$aar" | grep -E "classes.jar|\.so$"
+
+            unzip -p "$aar" classes.jar > /tmp/soundtouch-classes.jar
+
+            echo "===== CLASSES SOUND TOUCH ====="
+            jar tf /tmp/soundtouch-classes.jar | grep -E "com/tianscar|soundtouch"
+          done
 
       - name: Compiler HARMONY VOICE
         run: gradle assembleDebug
