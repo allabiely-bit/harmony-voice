@@ -2,60 +2,62 @@ package com.harmonyvoice.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.content.ContentValues
-import android.content.Intent
-import android.provider.MediaStore
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.Gravity
-import android.widget.Button
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.io.File
-import java.util.Locale
-import android.app.AlertDialog
-import android.media.AudioFormat
-import android.media.MediaCodec
-import android.media.MediaExtractor
-import android.media.MediaFormat
-import android.media.AudioRecord
-import android.media.AudioTrack
-import java.io.BufferedOutputStream
+import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.DataOutputStream
+import java.util.Locale
 
 class MainActivity : Activity() {
 
-    private var recorder: MediaRecorder? = null
-    private var mediaPlayer: MediaPlayer? = null
-    
+    // =========================================================
+    // AUDIO
+    // =========================================================
+
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
+
     private var pcmOutputFile = ""
+    private var outputFile = ""
+
     private var isPcmRecording = false
-    
+    private var isRecording = false
+    private var isPlaying = false
+
+    private var selectedAudioUri: Uri? = null
+    private var selectedVoicePart = "SOPRANO"
+
     private val audioSampleRate = 44100
     private val audioChannelConfig = AudioFormat.CHANNEL_IN_MONO
     private val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
 
-    private var outputFile = ""
-    private var selectedAudioUri: Uri? = null
-    private var selectedVoicePart = "SOPRANO"
-    private var outputPfd: android.os.ParcelFileDescriptor? = null
-    private var isRecording = false
-    private var isPlaying = false
+    private var mediaPlayer: MediaPlayer? = null
+
+    // =========================================================
+    // INTERFACE
+    // =========================================================
 
     private var seconds = 0
 
@@ -63,11 +65,16 @@ class MainActivity : Activity() {
     private lateinit var recordButton: TextView
     private lateinit var listenButton: TextView
 
-    private val handler = Handler(Looper.getMainLooper())
+    private val handler = android.os.Handler(
+        android.os.Looper.getMainLooper()
+    )
 
     private val timerRunnable = object : Runnable {
+
         override fun run() {
+
             if (isRecording) {
+
                 seconds++
 
                 val minutes = seconds / 60
@@ -80,26 +87,37 @@ class MainActivity : Activity() {
                     secs
                 )
 
-                handler.postDelayed(this, 1000)
+                handler.postDelayed(
+                    this,
+                    1000
+                )
             }
         }
     }
 
-    // ---------------------------------------------------------
+    // =========================================================
     // OUTILS D'AFFICHAGE
-    // ---------------------------------------------------------
+    // =========================================================
 
     private fun dp(value: Int): Int {
-        return (value * resources.displayMetrics.density).toInt()
+
+        return (
+            value *
+                resources.displayMetrics.density
+            ).toInt()
     }
 
     private fun roundedBackground(
         color: Int,
         radius: Int = 16
     ): GradientDrawable {
+
         return GradientDrawable().apply {
+
             setColor(color)
-            cornerRadius = dp(radius).toFloat()
+
+            cornerRadius =
+                dp(radius).toFloat()
         }
     }
 
@@ -119,18 +137,23 @@ class MainActivity : Activity() {
         button.setTextSize(textSize)
 
         button.gravity = Gravity.CENTER
-        button.textAlignment = View.TEXT_ALIGNMENT_CENTER
+        button.textAlignment =
+            View.TEXT_ALIGNMENT_CENTER
 
         button.includeFontPadding = true
 
         if (bold) {
-            button.setTypeface(null, Typeface.BOLD)
+            button.setTypeface(
+                null,
+                Typeface.BOLD
+            )
         }
 
-        button.background = roundedBackground(
-            backgroundColor,
-            14
-        )
+        button.background =
+            roundedBackground(
+                backgroundColor,
+                14
+            )
 
         button.setPadding(
             dp(12),
@@ -139,7 +162,8 @@ class MainActivity : Activity() {
             dp(10)
         )
 
-        button.minimumHeight = dp(minHeight)
+        button.minimumHeight =
+            dp(minHeight)
 
         button.isClickable = true
         button.isFocusable = true
@@ -151,6 +175,7 @@ class MainActivity : Activity() {
         parent: LinearLayout,
         height: Int
     ) {
+
         val space = View(this)
 
         parent.addView(
@@ -162,38 +187,66 @@ class MainActivity : Activity() {
         )
     }
 
-    // ---------------------------------------------------------
-    // CREATION DE L'INTERFACE
-    // ---------------------------------------------------------
+    // =========================================================
+    // CRÉATION DE L'INTERFACE
+    // =========================================================
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
 
-        window.statusBarColor = Color.rgb(10, 10, 10)
-        window.navigationBarColor = Color.rgb(10, 10, 10)
+        super.onCreate(
+            savedInstanceState
+        )
+
+        window.statusBarColor =
+            Color.rgb(
+                10,
+                10,
+                10
+            )
+
+        window.navigationBarColor =
+            Color.rgb(
+                10,
+                10,
+                10
+            )
 
         createInterface()
     }
 
     private fun createInterface() {
 
-        // Fond général
-        val root = LinearLayout(this)
+        val root =
+            LinearLayout(this)
 
-        root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(Color.rgb(10, 10, 10))
+        root.orientation =
+            LinearLayout.VERTICAL
+
+        root.setBackgroundColor(
+            Color.rgb(
+                10,
+                10,
+                10
+            )
+        )
 
         // =====================================================
         // ZONE PRINCIPALE SCROLLABLE
         // =====================================================
 
-        val scrollView = ScrollView(this)
+        val scrollView =
+            ScrollView(this)
 
-        scrollView.isFillViewport = true
+        scrollView.isFillViewport =
+            true
 
-        val content = LinearLayout(this)
+        val content =
+            LinearLayout(this)
 
-        content.orientation = LinearLayout.VERTICAL
+        content.orientation =
+            LinearLayout.VERTICAL
 
         content.setPadding(
             dp(20),
@@ -202,18 +255,34 @@ class MainActivity : Activity() {
             dp(24)
         )
 
-        // -----------------------------------------------------
+        // =====================================================
         // TITRE
-        // -----------------------------------------------------
+        // =====================================================
 
-        val title = TextView(this)
+        val title =
+            TextView(this)
 
-        title.text = "HARMONY VOICE"
-        title.setTextColor(Color.WHITE)
-        title.setTextSize(23f)
-        title.setTypeface(null, Typeface.BOLD)
-        title.gravity = Gravity.CENTER
-        title.includeFontPadding = true
+        title.text =
+            "HARMONY VOICE"
+
+        title.setTextColor(
+            Color.WHITE
+        )
+
+        title.setTextSize(
+            23f
+        )
+
+        title.setTypeface(
+            null,
+            Typeface.BOLD
+        )
+
+        title.gravity =
+            Gravity.CENTER
+
+        title.includeFontPadding =
+            true
 
         content.addView(
             title,
@@ -223,16 +292,38 @@ class MainActivity : Activity() {
             )
         )
 
-        addSpace(content, 4)
+        addSpace(
+            content,
+            4
+        )
 
-        // Sous-titre
-        val subtitle = TextView(this)
+        // =====================================================
+        // SOUS-TITRE
+        // =====================================================
 
-        subtitle.text = "Chante une voix • Crée ton harmonie"
-        subtitle.setTextColor(Color.rgb(190, 190, 190))
-        subtitle.setTextSize(13f)
-        subtitle.gravity = Gravity.CENTER
-        subtitle.includeFontPadding = true
+        val subtitle =
+            TextView(this)
+
+        subtitle.text =
+            "Chante une voix • Crée ton harmonie"
+
+        subtitle.setTextColor(
+            Color.rgb(
+                190,
+                190,
+                190
+            )
+        )
+
+        subtitle.setTextSize(
+            13f
+        )
+
+        subtitle.gravity =
+            Gravity.CENTER
+
+        subtitle.includeFontPadding =
+            true
 
         content.addView(
             subtitle,
@@ -242,16 +333,23 @@ class MainActivity : Activity() {
             )
         )
 
-        addSpace(content, 20)
+        addSpace(
+            content,
+            20
+        )
 
         // =====================================================
         // BLOC TA VOIX
         // =====================================================
 
-        val voiceBox = LinearLayout(this)
+        val voiceBox =
+            LinearLayout(this)
 
-        voiceBox.orientation = LinearLayout.VERTICAL
-        voiceBox.gravity = Gravity.CENTER
+        voiceBox.orientation =
+            LinearLayout.VERTICAL
+
+        voiceBox.gravity =
+            Gravity.CENTER
 
         voiceBox.setPadding(
             dp(16),
@@ -260,20 +358,40 @@ class MainActivity : Activity() {
             dp(18)
         )
 
-        voiceBox.background = roundedBackground(
-            Color.rgb(35, 35, 42),
-            20
+        voiceBox.background =
+            roundedBackground(
+                Color.rgb(
+                    35,
+                    35,
+                    42
+                ),
+                20
+            )
+
+        val voiceTitle =
+            TextView(this)
+
+        voiceTitle.text =
+            "TA VOIX"
+
+        voiceTitle.setTextColor(
+            Color.WHITE
         )
 
-        // TA VOIX
-        val voiceTitle = TextView(this)
+        voiceTitle.setTextSize(
+            18f
+        )
 
-        voiceTitle.text = "TA VOIX"
-        voiceTitle.setTextColor(Color.WHITE)
-        voiceTitle.setTextSize(18f)
-        voiceTitle.setTypeface(null, Typeface.BOLD)
-        voiceTitle.gravity = Gravity.CENTER
-        voiceTitle.includeFontPadding = true
+        voiceTitle.setTypeface(
+            null,
+            Typeface.BOLD
+        )
+
+        voiceTitle.gravity =
+            Gravity.CENTER
+
+        voiceTitle.includeFontPadding =
+            true
 
         voiceBox.addView(
             voiceTitle,
@@ -283,14 +401,23 @@ class MainActivity : Activity() {
             )
         )
 
-        addSpace(voiceBox, 10)
+        addSpace(
+            voiceBox,
+            10
+        )
 
-        // Micro
-        val microphone = TextView(this)
+        val microphone =
+            TextView(this)
 
-        microphone.text = "🎤"
-        microphone.setTextSize(34f)
-        microphone.gravity = Gravity.CENTER
+        microphone.text =
+            "🎤"
+
+        microphone.setTextSize(
+            34f
+        )
+
+        microphone.gravity =
+            Gravity.CENTER
 
         voiceBox.addView(
             microphone,
@@ -300,17 +427,35 @@ class MainActivity : Activity() {
             )
         )
 
-        addSpace(voiceBox, 5)
+        addSpace(
+            voiceBox,
+            5
+        )
 
-        // Compteur
-        timerText = TextView(this)
+        timerText =
+            TextView(this)
 
-        timerText.text = "00:00"
-        timerText.setTextColor(Color.WHITE)
-        timerText.setTextSize(19f)
-        timerText.setTypeface(null, Typeface.BOLD)
-        timerText.gravity = Gravity.CENTER
-        timerText.includeFontPadding = true
+        timerText.text =
+            "00:00"
+
+        timerText.setTextColor(
+            Color.WHITE
+        )
+
+        timerText.setTextSize(
+            19f
+        )
+
+        timerText.setTypeface(
+            null,
+            Typeface.BOLD
+        )
+
+        timerText.gravity =
+            Gravity.CENTER
+
+        timerText.includeFontPadding =
+            true
 
         voiceBox.addView(
             timerText,
@@ -328,19 +473,27 @@ class MainActivity : Activity() {
             )
         )
 
-        addSpace(content, 16)
+        addSpace(
+            content,
+            16
+        )
 
         // =====================================================
         // BOUTON ENREGISTRER
         // =====================================================
 
-        recordButton = createTextButton(
-            "●  ENREGISTRER MA VOIX",
-            Color.rgb(124, 0, 255),
-            Color.WHITE,
-            14f,
-            56
-        )
+        recordButton =
+            createTextButton(
+                "●  ENREGISTRER MA VOIX",
+                Color.rgb(
+                    124,
+                    0,
+                    255
+                ),
+                Color.WHITE,
+                14f,
+                56
+            )
 
         recordButton.setOnClickListener {
 
@@ -359,56 +512,86 @@ class MainActivity : Activity() {
             )
         )
 
-        addSpace(content, 10)
-        
+        addSpace(
+            content,
+            10
+        )
+
+                // =====================================================
+        // BOUTON UTILISER UNE VOIX EXISTANTE
         // =====================================================
-// BOUTON UTILISER UNE VOIX EXISTANTE
-// =====================================================
 
-val existingVoiceButton = createTextButton(
-    "📂  UTILISER UNE VOIX EXISTANTE",
-    Color.rgb(45, 45, 55),
-    Color.WHITE,
-    14f,
-    56
-)
+        val existingVoiceButton =
+            createTextButton(
+                "📂  UTILISER UNE VOIX EXISTANTE",
+                Color.rgb(
+                    45,
+                    45,
+                    55
+                ),
+                Color.WHITE,
+                14f,
+                56
+            )
 
-existingVoiceButton.setOnClickListener {
+        existingVoiceButton.setOnClickListener {
 
-    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            val intent =
+                Intent(
+                    Intent.ACTION_OPEN_DOCUMENT
+                )
 
-    intent.addCategory(Intent.CATEGORY_OPENABLE)
-    intent.type = "audio/*"
+            intent.addCategory(
+                Intent.CATEGORY_OPENABLE
+            )
 
-    startActivityForResult(intent, 200)
-}
+            intent.type =
+                "audio/*"
 
-content.addView(
-    existingVoiceButton,
-    LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT
-    )
-)
+            startActivityForResult(
+                intent,
+                200
+            )
+        }
 
-addSpace(content, 10)
+        content.addView(
+            existingVoiceButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        addSpace(
+            content,
+            10
+        )
 
         // =====================================================
         // BOUTON ÉCOUTER
         // =====================================================
 
-        listenButton = createTextButton(
-            "▶  ÉCOUTER MA VOIX",
-            Color.rgb(124, 0, 255),
-            Color.WHITE,
-            14f,
-            56
-        )
+        listenButton =
+            createTextButton(
+                "▶  ÉCOUTER MA VOIX",
+                Color.rgb(
+                    124,
+                    0,
+                    255
+                ),
+                Color.WHITE,
+                14f,
+                56
+            )
 
-        listenButton.isEnabled = true
-        listenButton.alpha = 0.75f
+        listenButton.isEnabled =
+            true
+
+        listenButton.alpha =
+            0.75f
 
         listenButton.setOnClickListener {
+
             playRecording()
         }
 
@@ -420,20 +603,39 @@ addSpace(content, 10)
             )
         )
 
-        addSpace(content, 24)
+        addSpace(
+            content,
+            24
+        )
 
         // =====================================================
         // CHOISIS UNE PARTIE
         // =====================================================
 
-        val chooseTitle = TextView(this)
+        val chooseTitle =
+            TextView(this)
 
-        chooseTitle.text = "CHOISIS UNE PARTIE"
-        chooseTitle.setTextColor(Color.WHITE)
-        chooseTitle.setTextSize(16f)
-        chooseTitle.setTypeface(null, Typeface.BOLD)
-        chooseTitle.gravity = Gravity.CENTER
-        chooseTitle.includeFontPadding = true
+        chooseTitle.text =
+            "CHOISIS UNE PARTIE"
+
+        chooseTitle.setTextColor(
+            Color.WHITE
+        )
+
+        chooseTitle.setTextSize(
+            16f
+        )
+
+        chooseTitle.setTypeface(
+            null,
+            Typeface.BOLD
+        )
+
+        chooseTitle.gravity =
+            Gravity.CENTER
+
+        chooseTitle.includeFontPadding =
+            true
 
         content.addView(
             chooseTitle,
@@ -443,29 +645,38 @@ addSpace(content, 10)
             )
         )
 
-        addSpace(content, 12)
+        addSpace(
+            content,
+            12
+        )
 
         // =====================================================
         // SOPRANO
         // =====================================================
 
-        val sopranoButton = createTextButton(
-            "SOPRANO",
-            Color.rgb(55, 55, 62),
-            Color.WHITE,
-            14f,
-            50
-        )
+        val sopranoButton =
+            createTextButton(
+                "SOPRANO",
+                Color.rgb(
+                    55,
+                    55,
+                    62
+                ),
+                Color.WHITE,
+                14f,
+                50
+            )
 
         sopranoButton.setOnClickListener {
 
-    selectedVoicePart = "SOPRANO"
+            selectedVoicePart =
+                "SOPRANO"
 
-    Toast.makeText(
-        this,
-        "Partie Soprano sélectionnée",
-        Toast.LENGTH_SHORT
-    ).show()
+            Toast.makeText(
+                this,
+                "Partie Soprano sélectionnée",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         content.addView(
@@ -476,29 +687,38 @@ addSpace(content, 10)
             )
         )
 
-        addSpace(content, 8)
+        addSpace(
+            content,
+            8
+        )
 
         // =====================================================
         // ALTO
         // =====================================================
 
-        val altoButton = createTextButton(
-            "ALTO",
-            Color.rgb(55, 55, 62),
-            Color.WHITE,
-            14f,
-            50
-        )
+        val altoButton =
+            createTextButton(
+                "ALTO",
+                Color.rgb(
+                    55,
+                    55,
+                    62
+                ),
+                Color.WHITE,
+                14f,
+                50
+            )
 
         altoButton.setOnClickListener {
 
-    selectedVoicePart = "ALTO"
+            selectedVoicePart =
+                "ALTO"
 
-    Toast.makeText(
-        this,
-        "Partie Alto sélectionnée",
-        Toast.LENGTH_SHORT
-    ).show()
+            Toast.makeText(
+                this,
+                "Partie Alto sélectionnée",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         content.addView(
@@ -509,29 +729,38 @@ addSpace(content, 10)
             )
         )
 
-        addSpace(content, 8)
+        addSpace(
+            content,
+            8
+        )
 
         // =====================================================
         // TÉNOR
         // =====================================================
 
-        val tenorButton = createTextButton(
-            "TÉNOR",
-            Color.rgb(55, 55, 62),
-            Color.WHITE,
-            14f,
-            50
-        )
+        val tenorButton =
+            createTextButton(
+                "TÉNOR",
+                Color.rgb(
+                    55,
+                    55,
+                    62
+                ),
+                Color.WHITE,
+                14f,
+                50
+            )
 
         tenorButton.setOnClickListener {
 
-    selectedVoicePart = "TÉNOR"
+            selectedVoicePart =
+                "TÉNOR"
 
-    Toast.makeText(
-        this,
-        "Partie Ténor sélectionnée",
-        Toast.LENGTH_SHORT
-    ).show()
+            Toast.makeText(
+                this,
+                "Partie Ténor sélectionnée",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         content.addView(
@@ -542,19 +771,26 @@ addSpace(content, 10)
             )
         )
 
-        addSpace(content, 18)
-
-        // =====================================================
+        addSpace(
+            content,
+            18
+        )
+               // =====================================================
         // ÉCOUTER L'HARMONIE
         // =====================================================
 
-        val harmonyButton = createTextButton(
-            "▶  ÉCOUTER L'HARMONIE",
-            Color.rgb(124, 0, 255),
-            Color.WHITE,
-            14f,
-            56
-        )
+        val harmonyButton =
+            createTextButton(
+                "▶  ÉCOUTER L'HARMONIE",
+                Color.rgb(
+                    124,
+                    0,
+                    255
+                ),
+                Color.WHITE,
+                14f,
+                56
+            )
 
         harmonyButton.setOnClickListener {
 
@@ -573,22 +809,39 @@ addSpace(content, 10)
             )
         )
 
-        addSpace(content, 20)
+        addSpace(
+            content,
+            20
+        )
 
-        scrollView.addView(content)
+        // =====================================================
+        // AJOUT DE LA ZONE SCROLLABLE
+        // =====================================================
+
+        scrollView.addView(
+            content
+        )
 
         // =====================================================
         // BARRE DU BAS
         // MES VOIX / HARMONIE / PROFIL
         // =====================================================
 
-        val bottomBar = LinearLayout(this)
+        val bottomBar =
+            LinearLayout(this)
 
-        bottomBar.orientation = LinearLayout.HORIZONTAL
-        bottomBar.gravity = Gravity.CENTER
+        bottomBar.orientation =
+            LinearLayout.HORIZONTAL
+
+        bottomBar.gravity =
+            Gravity.CENTER
 
         bottomBar.setBackgroundColor(
-            Color.rgb(25, 25, 30)
+            Color.rgb(
+                25,
+                25,
+                30
+            )
         )
 
         bottomBar.setPadding(
@@ -598,13 +851,18 @@ addSpace(content, 10)
             dp(6)
         )
 
+        // =====================================================
         // MES VOIX
-        val myVoices = createBottomItem(
-            "🎤",
-            "Mes voix"
-        )
+        // =====================================================
+
+        val myVoices =
+            createBottomItem(
+                "🎤",
+                "Mes voix"
+            )
 
         myVoices.setOnClickListener {
+
             Toast.makeText(
                 this,
                 "Mes voix",
@@ -612,13 +870,18 @@ addSpace(content, 10)
             ).show()
         }
 
+        // =====================================================
         // HARMONIE
-        val harmony = createBottomItem(
-            "🎵",
-            "Harmonie"
-        )
+        // =====================================================
+
+        val harmony =
+            createBottomItem(
+                "🎵",
+                "Harmonie"
+            )
 
         harmony.setOnClickListener {
+
             Toast.makeText(
                 this,
                 "Harmonie",
@@ -626,19 +889,28 @@ addSpace(content, 10)
             ).show()
         }
 
+        // =====================================================
         // PROFIL
-        val profile = createBottomItem(
-            "👤",
-            "Profil"
-        )
+        // =====================================================
+
+        val profile =
+            createBottomItem(
+                "👤",
+                "Profil"
+            )
 
         profile.setOnClickListener {
+
             Toast.makeText(
                 this,
                 "Profil",
                 Toast.LENGTH_SHORT
             ).show()
         }
+
+        // =====================================================
+        // AJOUT DES ÉLÉMENTS À LA BARRE
+        // =====================================================
 
         bottomBar.addView(
             myVoices,
@@ -688,22 +960,28 @@ addSpace(content, 10)
             )
         )
 
-        setContentView(root)
+        setContentView(
+            root
+        )
     }
 
-    // ---------------------------------------------------------
+    // =========================================================
     // ÉLÉMENT DE NAVIGATION DU BAS
-    // ---------------------------------------------------------
+    // =========================================================
 
     private fun createBottomItem(
         icon: String,
         label: String
     ): LinearLayout {
 
-        val item = LinearLayout(this)
+        val item =
+            LinearLayout(this)
 
-        item.orientation = LinearLayout.VERTICAL
-        item.gravity = Gravity.CENTER
+        item.orientation =
+            LinearLayout.VERTICAL
+
+        item.gravity =
+            Gravity.CENTER
 
         item.setPadding(
             dp(4),
@@ -712,11 +990,18 @@ addSpace(content, 10)
             dp(2)
         )
 
-        val iconText = TextView(this)
+        val iconText =
+            TextView(this)
 
-        iconText.text = icon
-        iconText.setTextSize(20f)
-        iconText.gravity = Gravity.CENTER
+        iconText.text =
+            icon
+
+        iconText.setTextSize(
+            20f
+        )
+
+        iconText.gravity =
+            Gravity.CENTER
 
         item.addView(
             iconText,
@@ -726,14 +1011,30 @@ addSpace(content, 10)
             )
         )
 
-        val labelText = TextView(this)
+        val labelText =
+            TextView(this)
 
-        labelText.text = label
-        labelText.setTextColor(Color.WHITE)
-        labelText.setTextSize(12f)
-        labelText.gravity = Gravity.CENTER
-        labelText.includeFontPadding = true
-        labelText.setTypeface(null, Typeface.BOLD)
+        labelText.text =
+            label
+
+        labelText.setTextColor(
+            Color.WHITE
+        )
+
+        labelText.setTextSize(
+            12f
+        )
+
+        labelText.gravity =
+            Gravity.CENTER
+
+        labelText.includeFontPadding =
+            true
+
+        labelText.setTypeface(
+            null,
+            Typeface.BOLD
+        )
 
         item.addView(
             labelText,
@@ -745,933 +1046,1417 @@ addSpace(content, 10)
 
         return item
     }
-
-    // ---------------------------------------------------------
-    // ENREGISTREMENT
-    // ---------------------------------------------------------
+        // =========================================================
+    // DÉMARRER L'ENREGISTREMENT
+    // =========================================================
 
     private fun startRecording() {
-        
-        if (android.os.Build.VERSION.SDK_INT >= 23) {
 
-    val microphonePermission =
-        checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+        if (checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
 
-    val storagePermission =
-        checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            requestPermissions(
+                arrayOf(
+                    Manifest.permission.RECORD_AUDIO
+                ),
+                RECORD_AUDIO_REQUEST
+            )
 
-    if (
-        microphonePermission != PackageManager.PERMISSION_GRANTED ||
-        storagePermission != PackageManager.PERMISSION_GRANTED
-    ) {
+            return
+        }
 
-        Toast.makeText(
-            this,
-            "Autorise le microphone et le stockage.",
-            Toast.LENGTH_LONG
-        ).show()
+        if (isRecording) {
+            return
+        }
 
-        requestPermissions(
-            arrayOf(
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ),
-            100
-        )
+        val started =
+            startPcmRecording()
 
-        return
-    }
-    }
+        if (!started) {
 
-    try {
+            Toast.makeText(
+                this,
+                "Impossible de démarrer l'enregistrement.",
+                Toast.LENGTH_LONG
+            ).show()
 
-        // Enregistrement temporaire dans HARMONY VOICE
-// La voix ne sera pas encore sauvegardée dans le téléphone.
-
-selectedAudioUri = null
-
-outputFile = File(
-    cacheDir,
-    "ma_voix_${System.currentTimeMillis()}.3gp"
-).absolutePath
-
-        recorder = MediaRecorder()
-
-        recorder?.setAudioSource(
-            MediaRecorder.AudioSource.MIC
-        )
-
-        recorder?.setOutputFormat(
-            MediaRecorder.OutputFormat.THREE_GPP
-        )
-
-        recorder?.setAudioEncoder(
-            MediaRecorder.AudioEncoder.AMR_NB
-        )
-
-        recorder?.setOutputFile(outputFile)
-
-        recorder?.prepare()
-        recorder?.start()
+            return
+        }
 
         isRecording = true
-        seconds = 0
-
-        timerText.text = "00:00"
-
-        recordButton.text =
-            "⏹  ARRÊTER L'ENREGISTREMENT"
-
-        listenButton.isEnabled = false
-        listenButton.alpha = 0.45f
-
-        handler.post(timerRunnable)
 
         Toast.makeText(
             this,
             "Enregistrement en cours...",
             Toast.LENGTH_SHORT
         ).show()
-
-    } catch (e: Exception) {
-
-        recorder?.release()
-        recorder = null
-
-        isRecording = false
-
-        Toast.makeText(
-            this,
-            "Impossible de démarrer l'enregistrement.",
-            Toast.LENGTH_LONG
-        ).show()
-    }
     }
 
 
-    // ---------------------------------------------------------
+    // =========================================================
+    // DÉMARRER L'ENREGISTREMENT PCM
+    // =========================================================
+
+    private fun startPcmRecording(): Boolean {
+
+        try {
+
+            val minBufferSize =
+                AudioRecord.getMinBufferSize(
+                    SAMPLE_RATE,
+                    CHANNEL_CONFIG,
+                    AUDIO_FORMAT
+                )
+
+            if (
+                minBufferSize ==
+                AudioRecord.ERROR ||
+                minBufferSize ==
+                AudioRecord.ERROR_BAD_VALUE
+            ) {
+
+                return false
+            }
+
+            val bufferSize =
+                minBufferSize * 2
+
+            audioRecord =
+                AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    SAMPLE_RATE,
+                    CHANNEL_CONFIG,
+                    AUDIO_FORMAT,
+                    bufferSize
+                )
+
+            if (
+                audioRecord?.state !=
+                AudioRecord.STATE_INITIALIZED
+            ) {
+
+                audioRecord?.release()
+                audioRecord = null
+
+                return false
+            }
+
+            val pcmFile =
+                File(
+                    cacheDir,
+                    "ma_voix_${System.currentTimeMillis()}.pcm"
+                )
+
+            pcmFilePath =
+                pcmFile.absolutePath
+
+            isPcmRecording = true
+
+            audioRecord?.startRecording()
+
+            recordingThread =
+                Thread {
+
+                    val buffer =
+                        ShortArray(
+                            bufferSize / 2
+                        )
+
+                    try {
+
+                        FileOutputStream(
+                            pcmFile
+                        ).use { output ->
+
+                            while (
+                                isPcmRecording
+                            ) {
+
+                                val read =
+                                    audioRecord?.read(
+                                        buffer,
+                                        0,
+                                        buffer.size
+                                    ) ?: 0
+
+                                if (read > 0) {
+
+                                    val bytes =
+                                        ByteArray(
+                                            read * 2
+                                        )
+
+                                    var index =
+                                        0
+
+                                    for (
+                                        i in 0 until read
+                                    ) {
+
+                                        val sample =
+                                            buffer[i].toInt()
+
+                                        bytes[index++] =
+                                            (
+                                                sample and
+                                                    0xFF
+                                            ).toByte()
+
+                                        bytes[index++] =
+                                            (
+                                                (sample shr 8)
+                                                    and 0xFF
+                                            ).toByte()
+                                    }
+
+                                    output.write(
+                                        bytes
+                                    )
+                                }
+                            }
+                        }
+
+                    } catch (
+                        e: Exception
+                    ) {
+
+                        e.printStackTrace()
+                    }
+                }
+
+            recordingThread?.start()
+
+            return true
+
+        } catch (
+            e: Exception
+        ) {
+
+            e.printStackTrace()
+
+            isPcmRecording = false
+
+            audioRecord?.release()
+            audioRecord = null
+
+            return false
+        }
+    }
+
+
+    // =========================================================
     // ARRÊTER L'ENREGISTREMENT
-    // ---------------------------------------------------------
+    // =========================================================
 
     private fun stopRecording() {
 
-    try {
-        recorder?.stop()
-    } catch (e: Exception) {
-    }
-
-    recorder?.release()
-    recorder = null
-
-    isRecording = false
-
-    handler.removeCallbacks(timerRunnable)
-
-    recordButton.text = "●  ENREGISTRER MA VOIX"
-
-    listenButton.isEnabled = true
-    listenButton.alpha = 1.0f
-
-    val file = File(outputFile)
-
-    if (!file.exists() || file.length() == 0L) {
-
-        Toast.makeText(
-            this,
-            "ERREUR : l'enregistrement n'a pas été créé.",
-            Toast.LENGTH_LONG
-        ).show()
-
-        return
-    }
-
-    // =====================================================
-    // PANNEAU : TA VOIX EST PRÊTE
-    // =====================================================
-
-    val layout = LinearLayout(this)
-
-    layout.orientation = LinearLayout.VERTICAL
-
-    layout.setPadding(
-        40,
-        30,
-        40,
-        20
-    )
-
-    val title = TextView(this)
-
-    title.text = "🎵  Ta voix est prête"
-
-    title.textSize = 22f
-
-    title.setTextColor(Color.BLACK)
-
-    title.gravity = Gravity.CENTER
-
-    layout.addView(
-        title,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-    )
-
-    val message = TextView(this)
-
-    message.text =
-        "Choisis ce que tu veux faire avec ton enregistrement."
-
-    message.textSize = 15f
-
-    message.setTextColor(Color.DKGRAY)
-
-    message.gravity = Gravity.CENTER
-
-    message.setPadding(
-        0,
-        15,
-        0,
-        25
-    )
-
-    layout.addView(
-        message,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-    )
-
-    // =====================================================
-    // BOUTON ÉCOUTER
-    // =====================================================
-
-    val listenChoice = Button(this)
-
-    listenChoice.text = "ÉCOUTER"
-
-    listenChoice.textSize = 14f
-   listenChoice.gravity = Gravity.CENTER
-
-    layout.addView(
-    listenChoice,
-    LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        80
-    )
-)
-
-    // =====================================================
-    // BOUTON UTILISER POUR LES HARMONIES
-    // =====================================================
-       
-        val harmonyChoice = Button(this)
-
-harmonyChoice.text =
-    "🎶  UTILISER CETTE VOIX\nPOUR LES HARMONIES"
-
-harmonyChoice.textSize = 14f
-
-harmonyChoice.isSingleLine = false
- harmonyChoice.gravity = Gravity.CENTER
-
-    layout.addView(
-    harmonyChoice,
-    LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        80
- )
-)
-
-    // =====================================================
-    // BOUTON SAUVEGARDER
-    // =====================================================
-
-   val saveChoice = Button(this)
-
-saveChoice.text =
-    "💾  SAUVEGARDER DANS LE\nTÉLÉPHONE"
-
-saveChoice.textSize = 14f
-
-saveChoice.isSingleLine = false
- saveChoice.gravity = Gravity.CENTER
-
-    layout.addView(
-        saveChoice,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            80
-        )
-    )
-
-    // =====================================================
-    // BOUTON RECOMMENCER
-    // =====================================================
-
-    val restartChoice = Button(this)
-
-    restartChoice.text = "RECOMMENCER"
-
-    restartChoice.textSize = 14f
-    restartChoice.gravity = Gravity.CENTER
-
-    layout.addView(
-        restartChoice,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            80
-        )
-    )
-
-    // =====================================================
-    // CRÉATION DE LA FENÊTRE
-    // =====================================================
-
-    val dialog = AlertDialog.Builder(this)
-        .setView(layout)
-        .create()
-
-    // Empêche la fenêtre de disparaître
-    // lorsqu'on touche à l'extérieur.
-    dialog.setCanceledOnTouchOutside(false)
-
-    // Empêche le bouton retour de fermer
-    // accidentellement la fenêtre.
-    dialog.setCancelable(false)
-
-    // =====================================================
-    // ÉCOUTER
-    // =====================================================
-
-    listenChoice.setOnClickListener {
-
-        dialog.dismiss()
-
-        playRecording()
-    }
-
-    // =====================================================
-    // UTILISER POUR LES HARMONIES
-    // =====================================================
-
-    harmonyChoice.setOnClickListener {
-
-        dialog.dismiss()
-
-        Toast.makeText(
-            this,
-            "🎶 Voix prête pour les harmonies.",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    // =====================================================
-    // SAUVEGARDER DANS LE TÉLÉPHONE
-    // =====================================================
-
-    saveChoice.setOnClickListener {
-
-        dialog.dismiss()
-
-        saveRecordingToPhone()
-    }
-
-    // =====================================================
-    // RECOMMENCER
-    // =====================================================
-
-    restartChoice.setOnClickListener {
-
-        try {
-            file.delete()
-        } catch (e: Exception) {
-        }
-
-        outputFile = ""
-
-        listenButton.isEnabled = false
-        listenButton.alpha = 0.45f
-
-        dialog.dismiss()
-
-        Toast.makeText(
-            this,
-            "Enregistrement supprimé.",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    dialog.show()
-}
-    
-    
-// ---------------------------------------------------------
-// ÉCOUTER L'ENREGISTREMENT
-// ---------------------------------------------------------
-
-override fun onActivityResult(
-    requestCode: Int,
-    resultCode: Int,
-    data: Intent?
-) {
-    super.onActivityResult(requestCode, resultCode, data)
-
-    if (requestCode == 200 && resultCode == Activity.RESULT_OK) {
-
-        val uri = data?.data
-
-        if (uri != null) {
-
-            selectedAudioUri = uri
-            outputFile = uri.toString()
-
-            listenButton.isEnabled = true
-            listenButton.alpha = 1.0f
-
-            Toast.makeText(
-                this,
-                "Voix existante sélectionnée.",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-}
-private fun startPcmRecording() {
-
-    try {
-
-        val minBufferSize = AudioRecord.getMinBufferSize(
-            audioSampleRate,
-            audioChannelConfig,
-            audioEncoding
-        )
-
-        if (minBufferSize <= 0) {
-            Toast.makeText(
-                this,
-                "Impossible de préparer l'enregistrement audio.",
-                Toast.LENGTH_LONG
-            ).show()
+        if (!isRecording) {
             return
         }
 
-        val bufferSize = minBufferSize * 2
+        isRecording = false
 
-        pcmOutputFile = File(
-            cacheDir,
-            "ma_voix_${System.currentTimeMillis()}.pcm"
-        ).absolutePath
+        stopPcmRecording()
 
-        audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
-            audioSampleRate,
-            audioChannelConfig,
-            audioEncoding,
-            bufferSize
-        )
+        val pcmPath =
+            pcmFilePath
 
-        audioRecord?.startRecording()
+        if (
+            pcmPath == null
+        ) {
 
-        isPcmRecording = true
+            Toast.makeText(
+                this,
+                "Aucun enregistrement trouvé.",
+                Toast.LENGTH_LONG
+            ).show()
 
-        recordingThread = Thread {
+            return
+        }
 
-            val buffer = ShortArray(bufferSize / 2)
+        val pcmFile =
+            File(
+                pcmPath
+            )
 
-            try {
+        if (
+            !pcmFile.exists() ||
+            pcmFile.length() <= 0
+        ) {
 
-                FileOutputStream(pcmOutputFile).use { output ->
+            Toast.makeText(
+                this,
+                "L'enregistrement est vide.",
+                Toast.LENGTH_LONG
+            ).show()
 
-                    while (isPcmRecording) {
+            return
+        }
 
-                        val read = audioRecord?.read(
-                            buffer,
-                            0,
-                            buffer.size
-                        ) ?: 0
+        val wavFile =
+            File(
+                cacheDir,
+                "ma_voix_${System.currentTimeMillis()}.wav"
+            )
 
-                        if (read > 0) {
+        try {
 
-                            val bytes = ByteArray(read * 2)
+            convertPcmToWav(
+                pcmFile,
+                wavFile
+            )
 
-                            for (i in 0 until read) {
+            outputFile =
+                wavFile.absolutePath
 
-                                val sample = buffer[i].toInt()
+            listenButton?.isEnabled =
+                true
 
-                                bytes[i * 2] =
-                                    (sample and 0xFF).toByte()
+            showVoiceReadyDialog()
 
-                                bytes[i * 2 + 1] =
-                                    ((sample shr 8) and 0xFF).toByte()
-                            }
+        } catch (
+            e: Exception
+        ) {
 
-                            output.write(bytes)
-                        }
-                    }
-                }
+            e.printStackTrace()
 
-            } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Erreur lors de la conversion audio.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
-                runOnUiThread {
 
-                    Toast.makeText(
-                        this,
-                        "Erreur pendant l'enregistrement audio.",
-                        Toast.LENGTH_LONG
-                    ).show()
+    // =========================================================
+    // ARRÊTER LE PCM PROPREMENT
+    // =========================================================
+
+    private fun stopPcmRecording() {
+
+        isPcmRecording = false
+
+        try {
+
+            audioRecord?.stop()
+
+        } catch (
+            e: Exception
+        ) {
+
+            e.printStackTrace()
+        }
+
+        try {
+
+            recordingThread?.join(
+                1000
+            )
+
+        } catch (
+            e: InterruptedException
+        ) {
+
+            e.printStackTrace()
+        }
+
+        recordingThread =
+            null
+
+        try {
+
+            audioRecord?.release()
+
+        } catch (
+            e: Exception
+        ) {
+
+            e.printStackTrace()
+        }
+
+        audioRecord =
+            null
+    }
+        // =========================================================
+    // CONVERSION PCM → WAV
+    // =========================================================
+
+    private fun convertPcmToWav(
+        pcmFile: File,
+        wavFile: File
+    ) {
+
+        val pcmSize =
+            pcmFile.length()
+
+        val dataSize =
+            pcmSize
+
+        val totalSize =
+            36 + dataSize
+
+        FileInputStream(
+            pcmFile
+        ).use { input ->
+
+            FileOutputStream(
+                wavFile
+            ).use { output ->
+
+                // RIFF
+                output.write(
+                    byteArrayOf(
+                        'R'.code.toByte(),
+                        'I'.code.toByte(),
+                        'F'.code.toByte(),
+                        'F'.code.toByte()
+                    )
+                )
+
+                writeIntLE(
+                    output,
+                    totalSize.toInt()
+                )
+
+                // WAVE
+                output.write(
+                    byteArrayOf(
+                        'W'.code.toByte(),
+                        'A'.code.toByte(),
+                        'V'.code.toByte(),
+                        'E'.code.toByte()
+                    )
+                )
+
+                // fmt
+                output.write(
+                    byteArrayOf(
+                        'f'.code.toByte(),
+                        'm'.code.toByte(),
+                        't'.code.toByte(),
+                        ' '.code.toByte()
+                    )
+                )
+
+                writeIntLE(
+                    output,
+                    16
+                )
+
+                // PCM format = 1
+                writeShortLE(
+                    output,
+                    1
+                )
+
+                // Mono
+                writeShortLE(
+                    output,
+                    1
+                )
+
+                // Sample rate
+                writeIntLE(
+                    output,
+                    SAMPLE_RATE
+                )
+
+                // Byte rate
+                val byteRate =
+                    SAMPLE_RATE * 2
+
+                writeIntLE(
+                    output,
+                    byteRate
+                )
+
+                // Block align
+                writeShortLE(
+                    output,
+                    2
+                )
+
+                // Bits per sample
+                writeShortLE(
+                    output,
+                    16
+                )
+
+                // data
+                output.write(
+                    byteArrayOf(
+                        'd'.code.toByte(),
+                        'a'.code.toByte(),
+                        't'.code.toByte(),
+                        'a'.code.toByte()
+                    )
+                )
+
+                writeIntLE(
+                    output,
+                    dataSize.toInt()
+                )
+
+                val buffer =
+                    ByteArray(
+                        4096
+                    )
+
+                var read:
+
+                    Int
+
+                while (
+                    input.read(
+                        buffer
+                    ).also {
+                        read = it
+                    } != -1
+                ) {
+
+                    output.write(
+                        buffer,
+                        0,
+                        read
+                    )
                 }
             }
         }
+    }
 
-        recordingThread?.start()
 
-        Toast.makeText(
-            this,
-            "Enregistrement PCM en cours...",
-            Toast.LENGTH_SHORT
-        ).show()
+    // =========================================================
+    // ÉCRIRE UN ENTIER LITTLE-ENDIAN
+    // =========================================================
 
-    } catch (e: Exception) {
+    private fun writeIntLE(
+        output: FileOutputStream,
+        value: Int
+    ) {
 
-        try {
-            audioRecord?.release()
-        } catch (_: Exception) {
+        output.write(
+            value and 0xFF
+        )
+
+        output.write(
+            (value shr 8) and 0xFF
+        )
+
+        output.write(
+            (value shr 16) and 0xFF
+        )
+
+        output.write(
+            (value shr 24) and 0xFF
+        )
+    }
+
+
+    // =========================================================
+    // ÉCRIRE UN SHORT LITTLE-ENDIAN
+    // =========================================================
+
+    private fun writeShortLE(
+        output: FileOutputStream,
+        value: Int
+    ) {
+
+        output.write(
+            value and 0xFF
+        )
+
+        output.write(
+            (value shr 8) and 0xFF
+        )
+    }
+
+
+    // =========================================================
+    // DIALOGUE : TA VOIX EST PRÊTE
+    // =========================================================
+
+    private fun showVoiceReadyDialog() {
+
+        val dialog =
+            AlertDialog.Builder(
+                this
+            ).create()
+
+        val container =
+            LinearLayout(
+                this
+            )
+
+        container.orientation =
+            LinearLayout.VERTICAL
+
+        container.setPadding(
+            dp(28),
+            dp(24),
+            dp(28),
+            dp(24)
+        )
+
+        val title =
+            TextView(
+                this
+            )
+
+        title.text =
+            "🎤  Ta voix est prête"
+
+        title.setTextColor(
+            Color.WHITE
+        )
+
+        title.setTextSize(
+            21f
+        )
+
+        title.setTypeface(
+            null,
+            Typeface.BOLD
+        )
+
+        title.gravity =
+            Gravity.CENTER
+
+        container.addView(
+            title,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        addSpace(
+            container,
+            12
+        )
+
+        val message =
+            TextView(
+                this
+            )
+
+        message.text =
+            "Que veux-tu faire avec cet enregistrement ?"
+
+        message.setTextColor(
+            Color.LTGRAY
+        )
+
+        message.setTextSize(
+            15f
+        )
+
+        message.gravity =
+            Gravity.CENTER
+
+        container.addView(
+            message,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        addSpace(
+            container,
+            20
+        )
+
+        // =====================================================
+        // ÉCOUTER
+        // =====================================================
+
+        val listenButtonDialog =
+            createTextButton(
+                "▶  ÉCOUTER",
+                Color.rgb(
+                    70,
+                    70,
+                    80
+                ),
+                Color.WHITE,
+                14f,
+                52
+            )
+
+        listenButtonDialog.setOnClickListener {
+
+            playRecording()
         }
 
-        audioRecord = null
+        container.addView(
+            listenButtonDialog,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
 
-        Toast.makeText(
-            this,
-            "Impossible de démarrer l'enregistrement.",
-            Toast.LENGTH_LONG
-        ).show()
+        addSpace(
+            container,
+            10
+        )
+
+        // =====================================================
+        // UTILISER POUR LES HARMONIES
+        // =====================================================
+
+        val useVoiceButton =
+            createTextButton(
+                "🎶  UTILISER CETTE VOIX POUR LES HARMONIES",
+                Color.rgb(
+                    124,
+                    0,
+                    255
+                ),
+                Color.WHITE,
+                14f,
+                52
+            )
+
+        useVoiceButton.setOnClickListener {
+
+            dialog.dismiss()
+
+            Toast.makeText(
+                this,
+                "Ta voix sera utilisée pour créer les harmonies.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        container.addView(
+            useVoiceButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        addSpace(
+            container,
+            10
+        )
+
+        // =====================================================
+        // SAUVEGARDER
+        // =====================================================
+
+        val saveButtonDialog =
+            createTextButton(
+                "💾  SAUVEGARDER DANS LE TÉLÉPHONE",
+                Color.rgb(
+                    45,
+                    45,
+                    55
+                ),
+                Color.WHITE,
+                14f,
+                52
+            )
+
+        saveButtonDialog.setOnClickListener {
+
+            saveRecordingToPhone()
+        }
+
+        container.addView(
+            saveButtonDialog,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        addSpace(
+            container,
+            10
+        )
+
+        // =====================================================
+        // RECOMMENCER
+        // =====================================================
+
+        val restartButtonDialog =
+            createTextButton(
+                "🔄  RECOMMENCER",
+                Color.rgb(
+                    55,
+                    55,
+                    65
+                ),
+                Color.WHITE,
+                14f,
+                52
+            )
+
+        restartButtonDialog.setOnClickListener {
+
+            dialog.dismiss()
+
+            restartRecording()
+        }
+
+        container.addView(
+            restartButtonDialog,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        dialog.setView(
+            container
+        )
+
+        dialog.window?.setBackgroundDrawable(
+            GradientDrawable().apply {
+                setColor(
+                    Color.rgb(
+                        30,
+                        30,
+                        38
+                    )
+                )
+
+                cornerRadius =
+                    dp(20).toFloat()
+            }
+        )
+
+        dialog.show()
+
+        dialog.window?.setBackgroundDrawable(
+            GradientDrawable().apply {
+                setColor(
+                    Color.rgb(
+                        30,
+                        30,
+                        38
+                    )
+                )
+
+                cornerRadius =
+                    dp(20).toFloat()
+            }
+        )
+
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.90).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
     }
-  }
-  private fun stopPcmRecording() {
+        // =========================================================
+    // RECOMMENCER UN NOUVEL ENREGISTREMENT
+    // =========================================================
 
-    isPcmRecording = false
+    private fun restartRecording() {
 
-    try {
-        recordingThread?.join(1000)
-    } catch (_: Exception) {
-    }
-
-    recordingThread = null
-
-    try {
-        audioRecord?.stop()
-    } catch (_: Exception) {
-    }
-
-    try {
-        audioRecord?.release()
-    } catch (_: Exception) {
-    }
-
-    audioRecord = null
-
-    if (pcmOutputFile.isEmpty()) {
-        Toast.makeText(
-            this,
-            "Aucun enregistrement PCM disponible.",
-            Toast.LENGTH_LONG
-        ).show()
-        return
-    }
-
-    val file = File(pcmOutputFile)
-
-    if (!file.exists() || file.length() == 0L) {
-
-        Toast.makeText(
-            this,
-            "L'enregistrement PCM n'a pas été créé.",
-            Toast.LENGTH_LONG
-        ).show()
-
-        return
-    }
-
-    Toast.makeText(
-        this,
-        "✅ Enregistrement PCM terminé.",
-        Toast.LENGTH_SHORT
-    ).show()
-}
-  private fun playRecording() {
-
-    if (outputFile.isEmpty()) {
-
-        Toast.makeText(
-            this,
-            "Aucune voix disponible.",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        return
-    }
-
-    if (isPlaying) {
+        stopPcmRecording()
 
         try {
             mediaPlayer?.stop()
-        } catch (e: Exception) {
+        } catch (
+            e: Exception
+        ) {
+            e.printStackTrace()
         }
 
         mediaPlayer?.release()
         mediaPlayer = null
 
-        isPlaying = false
+        val pcmPath =
+            pcmFilePath
 
-        listenButton.text = "▶  ÉCOUTER MA VOIX"
+        if (pcmPath != null) {
 
-        return
-    }
+            try {
 
-    try {
+                File(
+                    pcmPath
+                ).delete()
 
-        mediaPlayer?.release()
-        mediaPlayer = null
+            } catch (
+                e: Exception
+            ) {
 
-        mediaPlayer = MediaPlayer()
-
-        // =====================================================
-        // LECTURE DE LA VOIX
-        // FICHIER ENREGISTRÉ OU FICHIER SÉLECTIONNÉ
-        // =====================================================
-
-        if (selectedAudioUri != null) {
-
-            mediaPlayer?.setDataSource(
-                this,
-                selectedAudioUri!!
-            )
-
-        } else {
-
-            mediaPlayer?.setDataSource(outputFile)
+                e.printStackTrace()
+            }
         }
 
-        mediaPlayer?.setOnCompletionListener {
+        val wavPath =
+            outputFile
 
-            isPlaying = false
+        if (wavPath != null) {
 
-            listenButton.text = "▶  ÉCOUTER MA VOIX"
+            try {
 
-            mediaPlayer?.release()
-            mediaPlayer = null
+                File(
+                    wavPath
+                ).delete()
+
+            } catch (
+                e: Exception
+            ) {
+
+                e.printStackTrace()
+            }
         }
 
-        mediaPlayer?.prepare()
-        mediaPlayer?.start()
+        pcmFilePath =
+            null
 
-        isPlaying = true
+        outputFile =
+            null
 
-        listenButton.text = "⏹  ARRÊTER L'ÉCOUTE"
+        selectedAudioUri =
+            null
 
-    } catch (e: Exception) {
+        isRecording =
+            false
 
-        mediaPlayer?.release()
-        mediaPlayer = null
+        isPcmRecording =
+            false
 
-        isPlaying = false
-
-        listenButton.text = "▶  ÉCOUTER MA VOIX"
+        listenButton?.isEnabled =
+            false
 
         Toast.makeText(
             this,
-            "Impossible de lire la voix sélectionnée.",
-            Toast.LENGTH_LONG
-        ).show()
-    }
-  }    
-
-  private fun saveRecordingToPhone() {
-
-    if (outputFile.isEmpty()) {
-        Toast.makeText(
-            this,
-            "Aucune voix à sauvegarder.",
+            "Tu peux recommencer l'enregistrement.",
             Toast.LENGTH_SHORT
         ).show()
-        return
     }
 
-    try {
 
-        val sourceFile = File(outputFile)
+    // =========================================================
+    // LIRE L'ENREGISTREMENT
+    // =========================================================
 
-        if (!sourceFile.exists() || sourceFile.length() == 0L) {
-            Toast.makeText(
-                this,
-                "L'enregistrement est introuvable.",
-                Toast.LENGTH_LONG
-            ).show()
+    private fun playRecording() {
+
+        try {
+
+            mediaPlayer?.stop()
+
+        } catch (
+            e: Exception
+        ) {
+
+            e.printStackTrace()
+        }
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        // =====================================================
+        // VOIX EXISTANTE SÉLECTIONNÉE
+        // =====================================================
+
+        if (
+            selectedAudioUri != null
+        ) {
+
+            mediaPlayer =
+                MediaPlayer.create(
+                    this,
+                    selectedAudioUri
+                )
+
+            if (
+                mediaPlayer == null
+            ) {
+
+                Toast.makeText(
+                    this,
+                    "Impossible de lire cette voix.",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                return
+            }
+
+            mediaPlayer?.setOnCompletionListener {
+
+                it.release()
+
+                if (
+                    mediaPlayer === it
+                ) {
+                    mediaPlayer = null
+                }
+            }
+
+            mediaPlayer?.start()
+
             return
         }
 
-        val musicDirectory =
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_MUSIC
+        // =====================================================
+        // NOUVEL ENREGISTREMENT WAV
+        // =====================================================
+
+        val wavPath =
+            outputFile
+
+        if (
+            wavPath == null
+        ) {
+
+            Toast.makeText(
+                this,
+                "Aucun enregistrement disponible.",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        val wavFile =
+            File(
+                wavPath
             )
 
-        val directory = File(
-            musicDirectory,
-            "HARMONY VOICE"
-        )
+        if (
+            !wavFile.exists()
+        ) {
 
-        if (!directory.exists()) {
-            directory.mkdirs()
+            Toast.makeText(
+                this,
+                "Le fichier audio est introuvable.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            return
         }
 
-        val savedFile = File(
-            directory,
-            "ma_voix_${System.currentTimeMillis()}.3gp"
-        )
+        try {
 
-        java.io.FileInputStream(sourceFile).use { input ->
+            mediaPlayer =
+                MediaPlayer()
 
-            java.io.FileOutputStream(savedFile).use { output ->
+            mediaPlayer?.setDataSource(
+                wavFile.absolutePath
+            )
 
-                input.copyTo(output)
+            mediaPlayer?.prepare()
+
+            mediaPlayer?.setOnCompletionListener {
+
+                it.release()
+
+                if (
+                    mediaPlayer === it
+                ) {
+                    mediaPlayer = null
+                }
             }
+
+            mediaPlayer?.start()
+
+        } catch (
+            e: Exception
+        ) {
+
+            e.printStackTrace()
+
+            mediaPlayer?.release()
+            mediaPlayer = null
+
+            Toast.makeText(
+                this,
+                "Impossible de lire l'enregistrement.",
+                Toast.LENGTH_LONG
+            ).show()
         }
-
-        Toast.makeText(
-            this,
-            "✅ Ta voix a été sauvegardée dans Music/HARMONY VOICE.",
-            Toast.LENGTH_LONG
-        ).show()
-
-    } catch (e: Exception) {
-
-        Toast.makeText(
-            this,
-            "Erreur lors de la sauvegarde : ${e.message}",
-            Toast.LENGTH_LONG
-        ).show()
-    }
-  }
-
-// ---------------------------------------------------------
-// NETTOYAGE
-// ---------------------------------------------------------
-
-override fun onDestroy() {
-
-    handler.removeCallbacks(timerRunnable)
-
-    try {
-        recorder?.release()
-    } catch (e: Exception) {
     }
 
-    recorder = null
-    try {
-    outputPfd?.close()
-} catch (e: Exception) {
-}
 
-outputPfd = null
+    // =========================================================
+    // RÉSULTAT : UTILISER UNE VOIX EXISTANTE
+    // =========================================================
 
-    try {
-        mediaPlayer?.release()
-    } catch (e: Exception) {
-    }
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
 
-    mediaPlayer = null
-
-        super.onDestroy()
-}
-
-        private fun decodeAudioToPcm(filePath: String): ShortArray? {
-
-    var extractor: MediaExtractor? = null
-    var codec: MediaCodec? = null
-
-    try {
-
-        extractor = MediaExtractor()
-        extractor.setDataSource(filePath)
-
-        var audioTrack = -1
-
-        for (i in 0 until extractor.trackCount) {
-
-            val format = extractor.getTrackFormat(i)
-
-            val mime = format.getString(MediaFormat.KEY_MIME)
-
-            if (mime != null && mime.startsWith("audio/")) {
-                audioTrack = i
-                break
-            }
-        }
-
-        if (audioTrack < 0) {
-            return null
-        }
-
-        extractor.selectTrack(audioTrack)
-
-        val format = extractor.getTrackFormat(audioTrack)
-
-        val mime =
-            format.getString(MediaFormat.KEY_MIME)
-                ?: return null
-
-        codec = MediaCodec.createDecoderByType(mime)
-
-        codec.configure(
-            format,
-            null,
-            null,
-            0
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
         )
 
-        codec.start()
+        if (
+            requestCode ==
+            PICK_AUDIO_REQUEST &&
+            resultCode ==
+            RESULT_OK
+        ) {
 
-        val pcmData = ArrayList<Short>()
+            val uri =
+                data?.data
 
-        val bufferInfo = MediaCodec.BufferInfo()
+            if (
+                uri == null
+            ) {
 
-        var inputFinished = false
-        var outputFinished = false
+                Toast.makeText(
+                    this,
+                    "Aucun fichier audio sélectionné.",
+                    Toast.LENGTH_SHORT
+                ).show()
 
-        while (!outputFinished) {
+                return
+            }
 
-            if (!inputFinished) {
+            selectedAudioUri =
+                uri
 
-                val inputIndex =
-                    codec.dequeueInputBuffer(10000)
+            outputFile =
+                null
 
-                if (inputIndex >= 0) {
+            pcmFilePath =
+                null
 
-                    val inputBuffer =
-                        codec.getInputBuffer(inputIndex)
+            listenButton?.isEnabled =
+                true
 
-                    if (inputBuffer != null) {
+            Toast.makeText(
+                this,
+                "Voix sélectionnée avec succès.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
-                        val sampleSize =
-                            extractor.readSampleData(
-                                inputBuffer,
-                                0
+
+    // =========================================================
+    // SAUVEGARDER DANS LE TÉLÉPHONE
+    // =========================================================
+
+    private fun saveRecordingToPhone() {
+
+        val wavPath =
+            outputFile
+
+        if (
+            wavPath == null
+        ) {
+
+            Toast.makeText(
+                this,
+                "Aucun nouvel enregistrement à sauvegarder.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            return
+        }
+
+        val sourceFile =
+            File(
+                wavPath
+            )
+
+        if (
+            !sourceFile.exists() ||
+            sourceFile.length() <= 0
+        ) {
+
+            Toast.makeText(
+                this,
+                "Le fichier audio est introuvable.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            return
+        }
+
+        try {
+
+            val fileName =
+                "HARMONY_VOICE_${System.currentTimeMillis()}.wav"
+
+            // =================================================
+            // ANDROID 10 ET PLUS
+            // =================================================
+
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.Q
+            ) {
+
+                val values =
+                    ContentValues().apply {
+
+                        put(
+                            MediaStore.Audio.Media.DISPLAY_NAME,
+                            fileName
+                        )
+
+                        put(
+                            MediaStore.Audio.Media.MIME_TYPE,
+                            "audio/wav"
+                        )
+
+                        put(
+                            MediaStore.Audio.Media.RELATIVE_PATH,
+                            Environment.DIRECTORY_MUSIC +
+                                "/HARMONY VOICE"
+                        )
+
+                        put(
+                            MediaStore.Audio.Media.IS_PENDING,
+                            1
+                        )
+                    }
+
+                val resolver =
+                    contentResolver
+
+                val uri =
+                    resolver.insert(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        values
+                    )
+
+                if (
+                    uri == null
+                ) {
+
+                    Toast.makeText(
+                        this,
+                        "Impossible de créer le fichier.",
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    return
+                }
+
+                resolver.openOutputStream(
+                    uri
+                ).use { output ->
+
+                    if (
+                        output == null
+                    ) {
+                        throw Exception(
+                            "OutputStream indisponible"
+                        )
+                    }
+
+                    FileInputStream(
+                        sourceFile
+                    ).use { input ->
+
+                        val buffer =
+                            ByteArray(
+                                8192
                             )
 
-                        if (sampleSize < 0) {
+                        var read:
 
-                            codec.queueInputBuffer(
-                                inputIndex,
+                            Int
+
+                        while (
+                            input.read(
+                                buffer
+                            ).also {
+                                read = it
+                            } != -1
+                        ) {
+
+                            output.write(
+                                buffer,
                                 0,
-                                0,
-                                0,
-                                MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                                read
                             )
-
-                            inputFinished = true
-
-                        } else {
-
-                            codec.queueInputBuffer(
-                                inputIndex,
-                                0,
-                                sampleSize,
-                                extractor.sampleTime,
-                                0
-                            )
-
-                            extractor.advance()
                         }
                     }
                 }
-            }
 
-            val outputIndex =
-                codec.dequeueOutputBuffer(
-                    bufferInfo,
-                    10000
+                values.clear()
+
+                values.put(
+                    MediaStore.Audio.Media.IS_PENDING,
+                    0
                 )
 
-            if (outputIndex >= 0) {
+                resolver.update(
+                    uri,
+                    values,
+                    null,
+                    null
+                )
 
-                val outputBuffer =
-                    codec.getOutputBuffer(outputIndex)
+                Toast.makeText(
+                    this,
+                    "Voix sauvegardée dans Music/HARMONY VOICE.",
+                    Toast.LENGTH_LONG
+                ).show()
 
-                if (outputBuffer != null &&
-                    bufferInfo.size > 0
+            } else {
+
+                // =============================================
+                // ANDROID 9 ET MOINS
+                // =============================================
+
+                val musicDirectory =
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_MUSIC
+                    )
+
+                val harmonyDirectory =
+                    File(
+                        musicDirectory,
+                        "HARMONY VOICE"
+                    )
+
+                if (
+                    !harmonyDirectory.exists()
                 ) {
 
-                    outputBuffer.position(
-                        bufferInfo.offset
+                    harmonyDirectory.mkdirs()
+                }
+
+                val destination =
+                    File(
+                        harmonyDirectory,
+                        fileName
                     )
 
-                    outputBuffer.limit(
-                        bufferInfo.offset +
-                                bufferInfo.size
-                    )
+                FileInputStream(
+                    sourceFile
+                ).use { input ->
 
-                    outputBuffer.order(
-                        java.nio.ByteOrder.LITTLE_ENDIAN
-                    )
+                    FileOutputStream(
+                        destination
+                    ).use { output ->
 
-                    while (
-                        outputBuffer.remaining() >= 2
-                    ) {
+                        val buffer =
+                            ByteArray(
+                                8192
+                            )
 
-                        pcmData.add(
-                            outputBuffer.short
-                        )
+                        var read:
+
+                            Int
+
+                        while (
+                            input.read(
+                                buffer
+                            ).also {
+                                read = it
+                            } != -1
+                        ) {
+
+                            output.write(
+                                buffer,
+                                0,
+                                read
+                            )
+                        }
                     }
                 }
 
-                codec.releaseOutputBuffer(
-                    outputIndex,
-                    false
-                )
+                Toast.makeText(
+                    this,
+                    "Voix sauvegardée dans Music/HARMONY VOICE.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
 
-                if (
-                    bufferInfo.flags and
-                    MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                ) {
+        } catch (
+            e: Exception
+        ) {
 
-                    outputFinished = true
-                }
+            e.printStackTrace()
+
+            Toast.makeText(
+                this,
+                "Erreur lors de la sauvegarde.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+        // =========================================================
+    // RÉSULTAT DE LA DEMANDE DE PERMISSION MICRO
+    // =========================================================
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
+        )
+
+        if (
+            requestCode ==
+            RECORD_AUDIO_REQUEST
+        ) {
+
+            if (
+                grantResults.isNotEmpty() &&
+                grantResults[0] ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+
+                Toast.makeText(
+                    this,
+                    "Permission microphone accordée.",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+            } else {
+
+                Toast.makeText(
+                    this,
+                    "La permission microphone est nécessaire pour enregistrer ta voix.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
-
-        codec.stop()
-        codec.release()
-        codec = null
-
-        extractor.release()
-        extractor = null
-
-        return ShortArray(pcmData.size) { index ->
-            pcmData[index]
-        }
-
-    } catch (e: Exception) {
-
-        try {
-            codec?.stop()
-        } catch (_: Exception) {
-        }
-
-        try {
-            codec?.release()
-        } catch (_: Exception) {
-        }
-
-        try {
-            extractor?.release()
-        } catch (_: Exception) {
-        }
-
-        return null
     }
+
+
+    // =========================================================
+    // NETTOYAGE À LA FERMETURE
+    // =========================================================
+
+    override fun onDestroy() {
+
+        isRecording =
+            false
+
+        stopPcmRecording()
+
+        try {
+
+            mediaPlayer?.stop()
+
+        } catch (
+            e: Exception
+        ) {
+
+            e.printStackTrace()
         }
-                            
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        super.onDestroy()
+    }
 }
