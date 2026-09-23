@@ -38,8 +38,8 @@ class HarmonyEngine {
             ((header[35].toInt() and 0xFF) shl 8)
 
         return channelsInFile == 1 &&
-                sampleRateInFile == sampleRate &&
-                bitsPerSample == 16
+        sampleRateInFile.toLong() == sampleRate &&
+        bitsPerSample == 16
     }
 
     fun createHarmonyVoice(
