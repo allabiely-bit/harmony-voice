@@ -2142,50 +2142,48 @@ private fun stopPcmRecording() {
                 FileInputStream(tenorFile).use { tenorInput ->
                     FileOutputStream(outputPath).use { output ->
 
+                        // Lire les 44 octets des en-têtes WAV
                         val sopranoHeader = ByteArray(44)
                         val altoHeader = ByteArray(44)
                         val tenorHeader = ByteArray(44)
 
+                        val sopranoHeaderRead =
+                            sopranoInput.read(sopranoHeader)
+
+                        val altoHeaderRead =
+                            altoInput.read(altoHeader)
+
+                        val tenorHeaderRead =
+                            tenorInput.read(tenorHeader)
+
                         if (
-                            sopranoInput.read(sopranoHeader) != 44 ||
-                            altoInput.read(altoHeader) != 44 ||
-                            tenorInput.read(tenorHeader) != 44
+                            sopranoHeaderRead != 44 ||
+                            altoHeaderRead != 44 ||
+                            tenorHeaderRead != 44
                         ) {
                             return false
                         }
 
+                        // Réserver 44 octets pour l'en-tête final
                         output.write(ByteArray(44))
 
-                        val sopranoBuffer =
-                            ByteArray(8192)
-
-                        val altoBuffer =
-                            ByteArray(8192)
-
-                        val tenorBuffer =
-                            ByteArray(8192)
-
-                        val mixedBuffer =
-                            ByteArray(8192)
+                        val sopranoBuffer = ByteArray(8192)
+                        val altoBuffer = ByteArray(8192)
+                        val tenorBuffer = ByteArray(8192)
+                        val mixedBuffer = ByteArray(8192)
 
                         var totalDataSize = 0L
 
                         while (true) {
 
-                            val sopranoRead =
-                                sopranoInput.read(
-                                    sopranoBuffer
-                                )
+                            val sopranoRead: Int =
+                                sopranoInput.read(sopranoBuffer)
 
-                            val altoRead =
-                                altoInput.read(
-                                    altoBuffer
-                                )
+                            val altoRead: Int =
+                                altoInput.read(altoBuffer)
 
-                            val tenorRead =
-                                tenorInput.read(
-                                    tenorBuffer
-                                )
+                            val tenorRead: Int =
+                                tenorInput.read(tenorBuffer)
 
                             if (
                                 sopranoRead <= 0 &&
@@ -2195,82 +2193,82 @@ private fun stopPcmRecording() {
                                 break
                             }
 
-                            val maxBytes =
+                            val maxBytes: Int =
                                 maxOf(
-                                    sopranoRead.coerceAtLeast(0),
-                                    altoRead.coerceAtLeast(0),
-                                    tenorRead.coerceAtLeast(0)
+                                    if (sopranoRead > 0) sopranoRead else 0,
+                                    if (altoRead > 0) altoRead else 0,
+                                    if (tenorRead > 0) tenorRead else 0
                                 )
 
                             var i = 0
 
                             while (i + 1 < maxBytes) {
 
-                                val sopranoSample =
-                                    if (
-                                        i + 1 < sopranoRead
-                                    ) {
-                                        val low =
+                                val sopranoSample: Int =
+                                    if (i + 1 < sopranoRead) {
+
+                                        val low: Int =
                                             sopranoBuffer[i].toInt() and 0xFF
 
-                                        val high =
+                                        val high: Int =
                                             sopranoBuffer[i + 1].toInt()
 
                                         (high shl 8) or low
+
                                     } else {
                                         0
                                     }
 
-                                val altoSample =
-                                    if (
-                                        i + 1 < altoRead
-                                    ) {
-                                        val low =
+                                val altoSample: Int =
+                                    if (i + 1 < altoRead) {
+
+                                        val low: Int =
                                             altoBuffer[i].toInt() and 0xFF
 
-                                        val high =
+                                        val high: Int =
                                             altoBuffer[i + 1].toInt()
 
                                         (high shl 8) or low
+
                                     } else {
                                         0
                                     }
 
-                                val tenorSample =
-                                    if (
-                                        i + 1 < tenorRead
-                                    ) {
-                                        val low =
+                                val tenorSample: Int =
+                                    if (i + 1 < tenorRead) {
+
+                                        val low: Int =
                                             tenorBuffer[i].toInt() and 0xFF
 
-                                        val high =
+                                        val high: Int =
                                             tenorBuffer[i + 1].toInt()
 
                                         (high shl 8) or low
+
                                     } else {
                                         0
                                     }
 
-                                var mixed =
+                                var mixedSample: Int =
                                     (
                                         sopranoSample +
                                         altoSample +
                                         tenorSample
                                     ) / 3
 
-                                if (mixed > 32767) {
-                                    mixed = 32767
+                                if (mixedSample > 32767) {
+                                    mixedSample = 32767
                                 }
 
-                                if (mixed < -32768) {
-                                    mixed = -32768
+                                if (mixedSample < -32768) {
+                                    mixedSample = -32768
                                 }
 
                                 mixedBuffer[i] =
-                                    (mixed and 0xFF).toByte()
+                                    (mixedSample and 0xFF).toByte()
 
                                 mixedBuffer[i + 1] =
-                                    ((mixed shr 8) and 0xFF).toByte()
+                                    ((mixedSample shr 8) and 0xFF).toByte()
 
                                 i += 2
                             }
@@ -2281,13 +2279,102 @@ private fun stopPcmRecording() {
                                 maxBytes
                             )
 
-                            totalDataSize += maxBytes
+                            totalDataSize += maxBytes.toLong()
                         }
 
-                        writeWavHeader(
-                            outputPath,
-                            totalDataSize
+                        // Création de l'en-tête WAV
+                        val fileSize =
+                            36L + totalDataSize
+
+                        val header =
+                            ByteArray(44)
+
+                        header[0] = 'R'.code.toByte()
+                        header[1] = 'I'.code.toByte()
+                        header[2] = 'F'.code.toByte()
+                        header[3] = 'F'.code.toByte()
+
+                        writeIntLE(
+                            header,
+                            4,
+                            fileSize.toInt()
                         )
+
+                        header[8] = 'W'.code.toByte()
+                        header[9] = 'A'.code.toByte()
+                        header[10] = 'V'.code.toByte()
+                        header[11] = 'E'.code.toByte()
+
+                        header[12] = 'f'.code.toByte()
+                        header[13] = 'm'.code.toByte()
+                        header[14] = 't'.code.toByte()
+                        header[15] = ' '.code.toByte()
+
+                        writeIntLE(
+                            header,
+                            16,
+                            16
+                        )
+
+                        writeShortLE(
+                            header,
+                            20,
+                            1
+                        )
+
+                        writeShortLE(
+                            header,
+                            22,
+                            1
+                        )
+
+                        writeIntLE(
+                            header,
+                            24,
+                            44100
+                        )
+
+                        writeIntLE(
+                            header,
+                            28,
+                            44100 * 2
+                        )
+
+                        writeShortLE(
+                            header,
+                            32,
+                            2
+                        )
+
+                        writeShortLE(
+                            header,
+                            34,
+                            16
+                        )
+
+                        header[36] = 'd'.code.toByte()
+                        header[37] = 'a'.code.toByte()
+                        header[38] = 't'.code.toByte()
+                        header[39] = 'a'.code.toByte()
+
+                        writeIntLE(
+                            header,
+                            40,
+                            totalDataSize.toInt()
+                        )
+
+                        // Retour au début du fichier
+                        output.flush()
+
+                        val randomAccessFile =
+                            java.io.RandomAccessFile(
+                                outputPath,
+                                "rw"
+                            )
+
+                        randomAccessFile.seek(0)
+                        randomAccessFile.write(header)
+                        randomAccessFile.close()
                     }
                 }
             }
@@ -2296,11 +2383,12 @@ private fun stopPcmRecording() {
         File(outputPath).exists()
 
     } catch (
-        _ : Exception
+        _: Exception
     ) {
         false
     }
     }
+    
     private fun playHarmony() {
 
     if (harmonyOutputFile.isEmpty()) {
