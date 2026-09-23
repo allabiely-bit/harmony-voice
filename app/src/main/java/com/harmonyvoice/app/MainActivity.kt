@@ -1652,146 +1652,253 @@ private fun stopPcmRecording() {
     // =========================================================
     // PANNEAU : TA VOIX EST PRÊTE
     // =========================================================
+   private fun showVoiceReadyDialog() {
 
-    private fun showVoiceReadyDialog() {
+    val layout =
+        LinearLayout(this)
 
-        val layout =
-            LinearLayout(this)
+    layout.orientation =
+        LinearLayout.VERTICAL
 
-        layout.orientation =
-            LinearLayout.VERTICAL
+    layout.setPadding(
+        dp(24),
+        dp(24),
+        dp(24),
+        dp(16)
+    )
 
-        layout.setPadding(
-            dp(24),
-            dp(24),
-            dp(24),
-            dp(16)
+    // =====================================================
+    // TITRE
+    // =====================================================
+
+    val title =
+        TextView(this)
+
+    title.text =
+        "🎵  Ta voix est prête"
+
+    title.textSize =
+        22f
+
+    title.setTextColor(
+        Color.BLACK
+    )
+
+    title.gravity =
+        Gravity.CENTER
+
+    layout.addView(
+        title,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    // =====================================================
+    // MESSAGE
+    // =====================================================
+
+    val message =
+        TextView(this)
+
+    message.text =
+        "Choisis ce que tu veux faire avec ton enregistrement."
+
+    message.textSize =
+        15f
+
+    message.setTextColor(
+        Color.DKGRAY
+    )
+
+    message.gravity =
+        Gravity.CENTER
+
+    message.setPadding(
+        0,
+        dp(15),
+        0,
+        dp(25)
+    )
+
+    layout.addView(
+        message,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    // =====================================================
+    // DIALOGUE
+    // =====================================================
+
+    val dialog =
+        AlertDialog.Builder(this)
+            .setView(layout)
+            .create()
+
+    // =====================================================
+    // ÉCOUTER
+    // =====================================================
+
+    val listenChoice =
+        createTextButton(
+            "▶  ÉCOUTER",
+            Color.rgb(
+                124,
+                0,
+                255
+            ),
+            Color.WHITE,
+            14f,
+            52
         )
 
-        // =====================================================
-        // TITRE
-        // =====================================================
+    layout.addView(
+        listenChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
 
-        val title =
-            TextView(this)
+    addSpace(
+        layout,
+        10
+    )
 
-        title.text =
-            "🎵  Ta voix est prête"
+    listenChoice.setOnClickListener {
 
-        title.textSize =
-            22f
+        dialog.dismiss()
 
-        title.setTextColor(
-            Color.BLACK
+        playRecording()
+    }
+
+    // =====================================================
+    // UTILISER POUR LES HARMONIES
+    // =====================================================
+
+    val harmonyChoice =
+        createTextButton(
+            "🎶  UTILISER CETTE VOIX POUR LES HARMONIES",
+            Color.rgb(
+                124,
+                0,
+                255
+            ),
+            Color.WHITE,
+            14f,
+            52
         )
 
-        title.gravity =
-            Gravity.CENTER
-
-        layout.addView(
-            title,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+    layout.addView(
+        harmonyChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
         )
+    )
 
-        // =====================================================
-        // MESSAGE
-        // =====================================================
+    addSpace(
+        layout,
+        10
+    )
 
-        val message =
-            TextView(this)
+    harmonyChoice.setOnClickListener {
 
-        message.text =
-            "Choisis ce que tu veux faire avec ton enregistrement."
+        dialog.dismiss()
 
-        message.textSize =
-            15f
-
-        message.setTextColor(
-            Color.DKGRAY
-        )
-
-        message.gravity =
-            Gravity.CENTER
-
-        message.setPadding(
-            0,
-            dp(15),
-            0,
-            dp(25)
-        )
-
-        layout.addView(
-            message,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        // =====================================================
-        // ÉCOUTER
-        // =====================================================
-
-        listenChoice.setOnClickListener {
-
-            dialog.dismiss()
-
-            playRecording()
-        }
-
-        // =====================================================
-        // UTILISER POUR LES HARMONIES
-        // =====================================================
-
-        harmonyChoice.setOnClickListener {
-
-            dialog.dismiss()
-
-            if (
-                outputFile.isEmpty()
-            ) {
-
-                Toast.makeText(
-                    this,
-                    "Aucune voix disponible.",
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                return@setOnClickListener
-            }
+        if (
+            outputFile.isEmpty()
+        ) {
 
             Toast.makeText(
                 this,
-                "🎶 Ta voix est prête pour les harmonies.",
-                Toast.LENGTH_LONG
+                "Aucune voix disponible.",
+                Toast.LENGTH_SHORT
             ).show()
+
+            return@setOnClickListener
         }
 
-        // =====================================================
-        // SAUVEGARDER
-        // =====================================================
-
-        saveChoice.setOnClickListener {
-
-            saveRecordingToPhone()
-        }
-
-        // =====================================================
-        // RECOMMENCER
-        // =====================================================
-
-        restartChoice.setOnClickListener {
-
-            dialog.dismiss()
-
-            restartRecording()
-        }
-
-        dialog.show()
+        Toast.makeText(
+            this,
+            "🎶 Ta voix est prête pour les harmonies.",
+            Toast.LENGTH_LONG
+        ).show()
     }
+
+    // =====================================================
+    // SAUVEGARDER
+    // =====================================================
+
+    val saveChoice =
+        createTextButton(
+            "💾  SAUVEGARDER DANS LE TÉLÉPHONE",
+            Color.rgb(
+                45,
+                45,
+                55
+            ),
+            Color.WHITE,
+            14f,
+            52
+        )
+
+    layout.addView(
+        saveChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    addSpace(
+        layout,
+        10
+    )
+
+    saveChoice.setOnClickListener {
+
+        saveRecordingToPhone()
+    }
+
+    // =====================================================
+    // RECOMMENCER
+    // =====================================================
+
+    val restartChoice =
+        createTextButton(
+            "🔄  RECOMMENCER",
+            Color.rgb(
+                45,
+                45,
+                55
+            ),
+            Color.WHITE,
+            14f,
+            52
+        )
+
+    layout.addView(
+        restartChoice,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
+
+    restartChoice.setOnClickListener {
+
+        dialog.dismiss()
+
+        restartRecording()
+    }
+
+    dialog.show()
+   }
 
     // =========================================================
     // RECOMMENCER
