@@ -31,5 +31,5 @@ dependencies {
 
     // Moteur de traitement audio pour les harmonies
     implementation("com.tianscar.soundtouch:soundtouch-jni-android:1.1.1")
-    implementation("com.tianscar.soundtouch:soundtouch-jni-core:1.1.1")
+ implementation("com.tianscar.soundtouch:soundtouch-jni-core:1.1.1")
 }
