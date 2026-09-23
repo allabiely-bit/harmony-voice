@@ -44,6 +44,11 @@ class MainActivity : Activity() {
     private var pcmOutputFile = ""
     private var outputFile = ""
 
+    private var sopranoHarmonyFile = ""
+    private var altoHarmonyFile = ""
+    private var tenorHarmonyFile = ""
+    private var harmonyOutputFile = ""
+
     private var isPcmRecording = false
     private var isRecording = false
     private var isPlaying = false
@@ -56,6 +61,7 @@ class MainActivity : Activity() {
     private val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
 
     private var mediaPlayer: MediaPlayer? = null
+    private val harmonyEngine = HarmonyEngine()
 
     // =========================================================
     // INTERFACE
@@ -66,6 +72,7 @@ class MainActivity : Activity() {
     private lateinit var timerText: TextView
     private lateinit var recordButton: TextView
     private lateinit var listenButton: TextView
+    private lateinit var harmonyButton: TextView
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -801,26 +808,10 @@ class MainActivity : Activity() {
         // ÉCOUTER L'HARMONIE
         // =====================================================
 
-        val harmonyButton =
-            createTextButton(
-                "▶  ÉCOUTER L'HARMONIE",
-                Color.rgb(
-                    124,
-                    0,
-                    255
-                ),
-                Color.WHITE,
-                14f,
-                56
-            )
+        harmonyButton = createTextButton("▶  ÉCOUTER L'HARMONIE",Color.rgb(124,0,255),Color.WHITE,14f,56)
 
         harmonyButton.setOnClickListener {
-
-            Toast.makeText(
-                this,
-                "La création de l'harmonie sera disponible prochainement.",
-                Toast.LENGTH_LONG
-            ).show()
+    playHarmony()
         }
 
         content.addView(
@@ -1805,30 +1796,21 @@ private fun stopPcmRecording() {
         layout,
         10
     )
-
     harmonyChoice.setOnClickListener {
+    dialog.dismiss()
 
-        dialog.dismiss()
-
-        if (
-            outputFile.isEmpty()
-        ) {
-
-            Toast.makeText(
-                this,
-                "Aucune voix disponible.",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            return@setOnClickListener
-        }
-
+    if (outputFile.isEmpty()) {
         Toast.makeText(
             this,
-            "🎶 Ta voix est prête pour les harmonies.",
-            Toast.LENGTH_LONG
+            "Aucune voix disponible.",
+            Toast.LENGTH_SHORT
         ).show()
+        return@setOnClickListener
     }
+
+    createHarmony()
+    }
+
 
     // =====================================================
     // SAUVEGARDER
@@ -1976,6 +1958,424 @@ private fun stopPcmRecording() {
     // LECTURE
     // =========================================================
 
+    private fun createHarmony() {
+
+    val sourcePath = outputFile
+
+    if (sourcePath.isEmpty()) {
+        Toast.makeText(
+            this,
+            "Aucune voix disponible.",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
+    }
+
+    val sourceFile = File(sourcePath)
+
+    if (!sourceFile.exists() || sourceFile.length() == 0L) {
+        Toast.makeText(
+            this,
+            "Le fichier de ta voix est introuvable.",
+            Toast.LENGTH_LONG
+        ).show()
+        return
+    }
+
+    harmonyButton.isEnabled = false
+    harmonyButton.alpha = 0.5f
+    harmonyButton.text = "⏳  CRÉATION DE L'HARMONIE..."
+
+    Toast.makeText(
+        this,
+        "🎶 Création de ton harmonie en cours...",
+        Toast.LENGTH_LONG
+    ).show()
+
+    Thread {
+
+        try {
+
+            sopranoHarmonyFile =
+                File(
+                    cacheDir,
+                    "soprano_${System.currentTimeMillis()}.wav"
+                ).absolutePath
+
+            altoHarmonyFile =
+                File(
+                    cacheDir,
+                    "alto_${System.currentTimeMillis()}.wav"
+                ).absolutePath
+
+            tenorHarmonyFile =
+                File(
+                    cacheDir,
+                    "tenor_${System.currentTimeMillis()}.wav"
+                ).absolutePath
+
+            harmonyOutputFile =
+                File(
+                    cacheDir,
+                    "harmony_${System.currentTimeMillis()}.wav"
+                ).absolutePath
+
+            FileInputStream(
+                sourceFile
+            ).use { input ->
+
+                FileOutputStream(
+                    sopranoHarmonyFile
+                ).use { output ->
+
+                    val buffer =
+                        ByteArray(8192)
+
+                    var read: Int
+
+                    while (
+                        input.read(buffer).also {
+                            read = it
+                        } != -1
+                    ) {
+
+                        output.write(
+                            buffer,
+                            0,
+                            read
+                        )
+                    }
+                }
+            }
+
+            val altoCreated =
+                harmonyEngine.createHarmonyVoice(
+                    sourcePath,
+                    altoHarmonyFile,
+                    -3.0f
+                )
+
+            val tenorCreated =
+                harmonyEngine.createHarmonyVoice(
+                    sourcePath,
+                    tenorHarmonyFile,
+                    -7.0f
+                )
+
+            if (!altoCreated || !tenorCreated) {
+                throw Exception(
+                    "Impossible de créer les parties vocales."
+                )
+            }
+
+            val mixed =
+                mixHarmonyWavs(
+                    sopranoHarmonyFile,
+                    altoHarmonyFile,
+                    tenorHarmonyFile,
+                    harmonyOutputFile
+                )
+
+            if (!mixed) {
+                throw Exception(
+                    "Impossible de mélanger les voix."
+                )
+            }
+
+            runOnUiThread {
+
+                harmonyButton.isEnabled = true
+                harmonyButton.alpha = 1.0f
+                harmonyButton.text = "▶  ÉCOUTER L'HARMONIE"
+
+                Toast.makeText(
+                    this,
+                    "🎶 Ton harmonie est prête !",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+        } catch (
+            e: Exception
+        ) {
+
+            runOnUiThread {
+
+                harmonyButton.isEnabled = true
+                harmonyButton.alpha = 1.0f
+                harmonyButton.text = "▶  ÉCOUTER L'HARMONIE"
+
+                Toast.makeText(
+                    this,
+                    "Erreur lors de la création de l'harmonie.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+    }.start()
+    }
+
+    private fun mixHarmonyWavs(
+    sopranoPath: String,
+    altoPath: String,
+    tenorPath: String,
+    outputPath: String
+): Boolean {
+
+    return try {
+
+        val sopranoFile = File(sopranoPath)
+        val altoFile = File(altoPath)
+        val tenorFile = File(tenorPath)
+
+        if (
+            !sopranoFile.exists() ||
+            !altoFile.exists() ||
+            !tenorFile.exists()
+        ) {
+            return false
+        }
+
+        FileInputStream(sopranoFile).use { sopranoInput ->
+            FileInputStream(altoFile).use { altoInput ->
+                FileInputStream(tenorFile).use { tenorInput ->
+                    FileOutputStream(outputPath).use { output ->
+
+                        val sopranoHeader = ByteArray(44)
+                        val altoHeader = ByteArray(44)
+                        val tenorHeader = ByteArray(44)
+
+                        if (
+                            sopranoInput.read(sopranoHeader) != 44 ||
+                            altoInput.read(altoHeader) != 44 ||
+                            tenorInput.read(tenorHeader) != 44
+                        ) {
+                            return false
+                        }
+
+                        output.write(ByteArray(44))
+
+                        val sopranoBuffer =
+                            ByteArray(8192)
+
+                        val altoBuffer =
+                            ByteArray(8192)
+
+                        val tenorBuffer =
+                            ByteArray(8192)
+
+                        val mixedBuffer =
+                            ByteArray(8192)
+
+                        var totalDataSize = 0L
+
+                        while (true) {
+
+                            val sopranoRead =
+                                sopranoInput.read(
+                                    sopranoBuffer
+                                )
+
+                            val altoRead =
+                                altoInput.read(
+                                    altoBuffer
+                                )
+
+                            val tenorRead =
+                                tenorInput.read(
+                                    tenorBuffer
+                                )
+
+                            if (
+                                sopranoRead <= 0 &&
+                                altoRead <= 0 &&
+                                tenorRead <= 0
+                            ) {
+                                break
+                            }
+
+                            val maxBytes =
+                                maxOf(
+                                    sopranoRead.coerceAtLeast(0),
+                                    altoRead.coerceAtLeast(0),
+                                    tenorRead.coerceAtLeast(0)
+                                )
+
+                            var i = 0
+
+                            while (i + 1 < maxBytes) {
+
+                                val sopranoSample =
+                                    if (
+                                        i + 1 < sopranoRead
+                                    ) {
+                                        val low =
+                                            sopranoBuffer[i].toInt() and 0xFF
+
+                                        val high =
+                                            sopranoBuffer[i + 1].toInt()
+
+                                        (high shl 8) or low
+                                    } else {
+                                        0
+                                    }
+
+                                val altoSample =
+                                    if (
+                                        i + 1 < altoRead
+                                    ) {
+                                        val low =
+                                            altoBuffer[i].toInt() and 0xFF
+
+                                        val high =
+                                            altoBuffer[i + 1].toInt()
+
+                                        (high shl 8) or low
+                                    } else {
+                                        0
+                                    }
+
+                                val tenorSample =
+                                    if (
+                                        i + 1 < tenorRead
+                                    ) {
+                                        val low =
+                                            tenorBuffer[i].toInt() and 0xFF
+
+                                        val high =
+                                            tenorBuffer[i + 1].toInt()
+
+                                        (high shl 8) or low
+                                    } else {
+                                        0
+                                    }
+
+                                var mixed =
+                                    (
+                                        sopranoSample +
+                                        altoSample +
+                                        tenorSample
+                                    ) / 3
+
+                                if (mixed > 32767) {
+                                    mixed = 32767
+                                }
+
+                                if (mixed < -32768) {
+                                    mixed = -32768
+                                }
+
+                                mixedBuffer[i] =
+                                    (mixed and 0xFF).toByte()
+
+                                mixedBuffer[i + 1] =
+                                    ((mixed shr 8) and 0xFF).toByte()
+
+                                i += 2
+                            }
+
+                            output.write(
+                                mixedBuffer,
+                                0,
+                                maxBytes
+                            )
+
+                            totalDataSize += maxBytes
+                        }
+
+                        writeWavHeader(
+                            outputPath,
+                            totalDataSize
+                        )
+                    }
+                }
+            }
+        }
+
+        File(outputPath).exists()
+
+    } catch (
+        _ : Exception
+    ) {
+        false
+    }
+    }
+    private fun playHarmony() {
+
+    if (harmonyOutputFile.isEmpty()) {
+        Toast.makeText(
+            this,
+            "Aucune harmonie disponible.",
+            Toast.LENGTH_SHORT
+        ).show()
+        return
+    }
+
+    val harmonyFile = File(harmonyOutputFile)
+
+    if (!harmonyFile.exists() || harmonyFile.length() == 0L) {
+        Toast.makeText(
+            this,
+            "Le fichier d'harmonie est introuvable.",
+            Toast.LENGTH_LONG
+        ).show()
+        return
+    }
+
+    if (isPlaying) {
+        stopPlayback()
+        return
+    }
+
+    try {
+
+        mediaPlayer?.release()
+
+        mediaPlayer = MediaPlayer()
+
+        mediaPlayer?.setDataSource(
+            harmonyOutputFile
+        )
+
+        mediaPlayer?.setOnCompletionListener {
+
+            isPlaying = false
+
+            harmonyButton.text =
+                "▶  ÉCOUTER L'HARMONIE"
+
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+
+        mediaPlayer?.prepare()
+        mediaPlayer?.start()
+
+        isPlaying = true
+
+        harmonyButton.text =
+            "⏹  ARRÊTER L'HARMONIE"
+
+    } catch (
+        e: Exception
+    ) {
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        isPlaying = false
+
+        harmonyButton.text =
+            "▶  ÉCOUTER L'HARMONIE"
+
+        Toast.makeText(
+            this,
+            "Impossible de lire l'harmonie.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+    }
     private fun playRecording() {
 
         if (
