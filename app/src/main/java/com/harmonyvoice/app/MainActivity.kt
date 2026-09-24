@@ -2049,18 +2049,18 @@ private fun stopPcmRecording() {
             }
 
             val altoCreated =
-                harmonyEngine.createHarmonyVoice(
-                    sourcePath,
-                    altoHarmonyFile,
-                    -3.0f
-                )
+    harmonyEngine.createHarmonyVoice(
+        sourcePath,
+        altoHarmonyFile,
+        -2.0f
+    )
 
             val tenorCreated =
-                harmonyEngine.createHarmonyVoice(
-                    sourcePath,
-                    tenorHarmonyFile,
-                    -7.0f
-                )
+    harmonyEngine.createHarmonyVoice(
+        sourcePath,
+        tenorHarmonyFile,
+        -5.0f
+    )
 
             if (!altoCreated || !tenorCreated) {
                 throw Exception(
