@@ -42,6 +42,93 @@ class HarmonyEngine {
         bitsPerSample == 16
     }
 
+    data class VoiceAnalysis(
+    val durationMs: Long,
+    val sampleCount: Long,
+    val rmsLevel: Float,
+    val estimatedPitchHz: Float?
+)
+
+fun analyzeVoice(
+    inputWavPath: String
+): VoiceAnalysis? {
+
+    return try {
+
+        val file = java.io.File(inputWavPath)
+
+        if (!file.exists() || file.length() <= 44L) {
+            return null
+        }
+
+        java.io.FileInputStream(file).use { input ->
+
+            val header = ByteArray(44)
+
+            if (input.read(header) != 44 || !isSupportedWav(header)) {
+                return null
+            }
+
+            val dataSize = file.length() - 44L
+            val sampleCount = dataSize / 2L
+            val durationMs =
+                (sampleCount * 1000L) / sampleRate
+
+            val buffer = ByteArray(8192)
+
+            var totalEnergy = 0.0
+            var totalSamples = 0L
+
+            while (true) {
+
+                val bytesRead = input.read(buffer)
+
+                if (bytesRead <= 0) {
+                    break
+                }
+
+                val samplesRead = bytesRead / 2
+
+                for (i in 0 until samplesRead) {
+
+                    val low =
+                        buffer[i * 2].toInt() and 0xFF
+
+                    val high =
+                        buffer[i * 2 + 1].toInt()
+
+                    val sample =
+                        ((high shl 8) or low).toShort().toInt()
+
+                    totalEnergy +=
+                        sample.toDouble() * sample.toDouble()
+
+                    totalSamples++
+                }
+            }
+
+            val rmsLevel =
+                if (totalSamples > 0) {
+                    kotlin.math.sqrt(
+                        totalEnergy / totalSamples
+                    ).toFloat()
+                } else {
+                    0f
+                }
+
+            VoiceAnalysis(
+                durationMs = durationMs,
+                sampleCount = sampleCount,
+                rmsLevel = rmsLevel,
+                estimatedPitchHz = null
+            )
+        }
+
+    } catch (_: Exception) {
+
+        null
+    }
+}
     fun createHarmonyVoice(
         inputWavPath: String,
         outputWavPath: String,
