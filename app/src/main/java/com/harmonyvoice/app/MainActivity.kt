@@ -1961,6 +1961,8 @@ private fun stopPcmRecording() {
     private fun createHarmony() {
 
     val sourcePath = outputFile
+    val sourceDuration =
+    getWavDurationMs(sourcePath)
 
     if (sourcePath.isEmpty()) {
         Toast.makeText(
@@ -2080,7 +2082,7 @@ runOnUiThread {
 
     Toast.makeText(
         this,
-        "Durées : Soprano ${sopranoDuration}ms | Alto ${altoDuration}ms | Ténor ${tenorDuration}ms",
+        "Durées : Original ${sourceDuration}ms | Soprano ${sopranoDuration}ms | Alto ${altoDuration}ms | Ténor ${tenorDuration}ms"
         Toast.LENGTH_LONG
     ).show()
 }
