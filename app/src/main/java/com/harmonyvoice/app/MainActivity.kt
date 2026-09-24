@@ -1988,11 +1988,7 @@ private fun stopPcmRecording() {
     harmonyButton.alpha = 0.5f
     harmonyButton.text = "⏳  CRÉATION DE L'HARMONIE..."
 
-    Toast.makeText(
-        this,
-        "🎶 Création de ton harmonie en cours...",
-        Toast.LENGTH_LONG
-    ).show()
+    
 
     Thread {
 
@@ -2082,7 +2078,7 @@ runOnUiThread {
 
     Toast.makeText(
         this,
-        "Durées : Original ${sourceDuration}ms | Soprano ${sopranoDuration}ms | Alto ${altoDuration}ms | Ténor ${tenorDuration}ms"
+        "Durées : Original ${sourceDuration}ms | Soprano ${sopranoDuration}ms | Alto ${altoDuration}ms | Ténor ${tenorDuration}ms",
         Toast.LENGTH_LONG
     ).show()
 }
