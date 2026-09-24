@@ -2299,24 +2299,20 @@ private fun stopPcmRecording() {
                                         0
                                     }
 
-                                var mixedSample =
-                                    (
-                                        sopranoSample +
-                                        altoSample +
-                                        tenorSample
-                                    ) / 3
+                                   var mixedSample =
+    (
+        sopranoSample * 0.55f +
+        altoSample * 0.38f +
+        tenorSample * 0.38f
+    ).toInt()
 
-                                if (
-                                    mixedSample > 32767
-                                ) {
-                                    mixedSample = 32767
-                                }
+if (mixedSample > 32767) {
+    mixedSample = 32767
+}
 
-                                if (
-                                    mixedSample < -32768
-                                ) {
-                                    mixedSample = -32768
-                                }
+if (mixedSample < -32768) {
+    mixedSample = -32768
+}
 
                                 mixedBuffer[i] =
                                     (
