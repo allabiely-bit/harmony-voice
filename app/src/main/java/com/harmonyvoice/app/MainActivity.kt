@@ -2067,6 +2067,23 @@ private fun stopPcmRecording() {
                     "Impossible de créer les parties vocales."
                 )
             }
+            val sopranoDuration =
+    getWavDurationMs(sopranoHarmonyFile)
+
+            val altoDuration =
+    getWavDurationMs(altoHarmonyFile)
+
+            val tenorDuration =
+    getWavDurationMs(tenorHarmonyFile)
+
+runOnUiThread {
+
+    Toast.makeText(
+        this,
+        "Durées : Soprano ${sopranoDuration}ms | Alto ${altoDuration}ms | Ténor ${tenorDuration}ms",
+        Toast.LENGTH_LONG
+    ).show()
+}
 
             val mixed =
                 mixHarmonyWavs(
@@ -2114,6 +2131,26 @@ private fun stopPcmRecording() {
         }
 
     }.start()
+    }
+    private fun getWavDurationMs(
+    wavPath: String
+): Long {
+
+    val file = File(wavPath)
+
+    if (!file.exists() || file.length() <= 44L) {
+        return 0L
+    }
+
+    val dataSize =
+        file.length() - 44L
+
+    val sampleCount =
+        dataSize / 2L
+
+    return (
+        sampleCount * 1000L
+    ) / 44100L
     }
     private fun mixHarmonyWavs(
     sopranoPath: String,
