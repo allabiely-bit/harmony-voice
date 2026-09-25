@@ -48,6 +48,12 @@ class HarmonyEngine {
     val rmsLevel: Float,
     val estimatedPitchHz: Float?
 )
+    
+    data class DetectedNote(
+    val pitchHz: Float,
+    val startMs: Long,
+    val endMs: Long
+ )       
 
 fun analyzeVoice(
     inputWavPath: String
@@ -129,6 +135,139 @@ fun analyzeVoice(
         null
     }
 }
+fun detectNotes(
+    inputWavPath: String
+): List<DetectedNote> {
+
+    val detectedNotes = mutableListOf<DetectedNote>()
+
+    return try {
+
+        val file = java.io.File(inputWavPath)
+
+        if (!file.exists() || file.length() <= 44L) {
+            return detectedNotes
+        }
+
+        java.io.FileInputStream(file).use { input ->
+
+            val header = ByteArray(44)
+
+            if (
+                input.read(header) != 44 ||
+                !isSupportedWav(header)
+            ) {
+                return detectedNotes
+            }
+
+            val windowSize = 2048
+            val hopSize = 1024
+
+            val window = ShortArray(windowSize)
+
+            var samplesInWindow = 0
+
+            while (samplesInWindow < windowSize) {
+
+                val low = input.read()
+
+                if (low == -1) {
+                    break
+                }
+
+                val high = input.read()
+
+                if (high == -1) {
+                    break
+                }
+
+                window[samplesInWindow] =
+                    (
+                        (high shl 8) or
+                        (low and 0xFF)
+                    ).toShort()
+
+                samplesInWindow++
+            }
+
+            var samplePosition = 0L
+
+            while (samplesInWindow == windowSize) {
+
+                val pitchHz =
+                    detectPitchFromWindow(
+                        window,
+                        0,
+                        windowSize
+                    )
+
+                if (pitchHz != null) {
+
+                    val startMs =
+                        (samplePosition * 1000L) /
+                            sampleRate
+
+                    val endMs =
+                        (
+                            (samplePosition + windowSize) *
+                                1000L
+                        ) / sampleRate
+
+                    detectedNotes.add(
+                        DetectedNote(
+                            pitchHz = pitchHz,
+                            startMs = startMs,
+                            endMs = endMs
+                        )
+                    )
+                }
+
+                System.arraycopy(
+                    window,
+                    hopSize,
+                    window,
+                    0,
+                    windowSize - hopSize
+                )
+
+                samplesInWindow =
+                    windowSize - hopSize
+
+                while (samplesInWindow < windowSize) {
+
+                    val low = input.read()
+
+                    if (low == -1) {
+                        break
+                    }
+
+                    val high = input.read()
+
+                    if (high == -1) {
+                        break
+                    }
+
+                    window[samplesInWindow] =
+                        (
+                            (high shl 8) or
+                            (low and 0xFF)
+                        ).toShort()
+
+                    samplesInWindow++
+                }
+
+                samplePosition += hopSize
+            }
+        }
+
+        detectedNotes
+
+    } catch (_: Exception) {
+
+        emptyList()
+    }
+}
+
     fun createHarmonyVoice(
         inputWavPath: String,
         outputWavPath: String,
@@ -247,6 +386,86 @@ fun analyzeVoice(
         } catch (_: Exception) {
             false
         }
+    }
+    private fun detectPitchFromWindow(
+    samples: ShortArray,
+    start: Int,
+    size: Int
+): Float? {
+
+    var energy = 0.0
+
+    for (i in 0 until size) {
+        val value = samples[start + i].toDouble()
+        energy += value * value
+    }
+
+    if (energy < 1_000_000.0) {
+        return null
+    }
+
+    val minFrequency = 70.0
+    val maxFrequency = 1000.0
+
+    val minLag =
+        (sampleRate / maxFrequency).toInt()
+
+    val maxLag =
+        (sampleRate / minFrequency).toInt()
+
+    var bestLag = 0
+    var bestCorrelation = 0.0
+
+    for (lag in minLag..maxLag) {
+
+        var correlation = 0.0
+        var energyA = 0.0
+        var energyB = 0.0
+
+        for (i in 0 until (size - lag)) {
+
+            val a =
+                samples[start + i].toDouble()
+
+            val b =
+                samples[start + i + lag].toDouble()
+
+            correlation += a * b
+            energyA += a * a
+            energyB += b * b
+        }
+
+        val denominator =
+            kotlin.math.sqrt(
+                energyA * energyB
+            )
+
+        if (denominator > 0.0) {
+
+            val normalizedCorrelation =
+                correlation / denominator
+
+            if (
+                normalizedCorrelation >
+                bestCorrelation
+            ) {
+                bestCorrelation =
+                    normalizedCorrelation
+
+                bestLag = lag
+            }
+        }
+    }
+
+    if (
+        bestLag <= 0 ||
+        bestCorrelation < 0.70
+    ) {
+        return null
+    }
+
+    return sampleRate.toFloat() /
+        bestLag.toFloat()
     }
 
     private fun writeWavHeader(
