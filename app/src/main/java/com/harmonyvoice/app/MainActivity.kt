@@ -695,17 +695,16 @@ class MainActivity : Activity() {
                 50
             )
 
-        sopranoButton.setOnClickListener {
+      sopranoButton.setOnClickListener {
 
-            selectedVoicePart =
-                "SOPRANO"
+    selectedVoicePart =
+        "SOPRANO"
 
-            Toast.makeText(
-                this,
-                "Partie Soprano sélectionnée",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+    playVoicePart(
+        sopranoHarmonyFile,
+        "SOPRANO"
+    )
+      }
 
         content.addView(
             sopranoButton,
@@ -739,14 +738,13 @@ class MainActivity : Activity() {
 
         altoButton.setOnClickListener {
 
-            selectedVoicePart =
-                "ALTO"
+    selectedVoicePart =
+        "ALTO"
 
-            Toast.makeText(
-                this,
-                "Partie Alto sélectionnée",
-                Toast.LENGTH_SHORT
-            ).show()
+    playVoicePart(
+        altoHarmonyFile,
+        "ALTO"
+    )
         }
 
         content.addView(
@@ -781,14 +779,13 @@ class MainActivity : Activity() {
 
         tenorButton.setOnClickListener {
 
-            selectedVoicePart =
-                "TÉNOR"
+    selectedVoicePart =
+        "TÉNOR"
 
-            Toast.makeText(
-                this,
-                "Partie Ténor sélectionnée",
-                Toast.LENGTH_SHORT
-            ).show()
+    playVoicePart(
+        tenorHarmonyFile,
+        "TÉNOR"
+    )
         }
 
         content.addView(
@@ -2515,7 +2512,95 @@ if (mixedSample < -32768) {
         false
     }
     }                 
-    
+
+    private fun playVoicePart(
+    filePath: String,
+    partName: String
+) {
+
+    if (filePath.isEmpty()) {
+
+        Toast.makeText(
+            this,
+            "La partition $partName n'est pas encore disponible.",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        return
+    }
+
+    val voiceFile = File(filePath)
+
+    if (!voiceFile.exists() || voiceFile.length() == 0L) {
+
+        Toast.makeText(
+            this,
+            "Le fichier $partName est introuvable.",
+            Toast.LENGTH_LONG
+        ).show()
+
+        return
+    }
+
+    if (isPlaying) {
+
+        stopPlayback()
+
+        return
+    }
+
+    try {
+
+        mediaPlayer?.release()
+
+        mediaPlayer = MediaPlayer()
+
+        mediaPlayer?.setDataSource(
+            filePath
+        )
+
+        mediaPlayer?.setOnCompletionListener {
+
+            isPlaying = false
+
+            mediaPlayer?.release()
+            mediaPlayer = null
+
+            Toast.makeText(
+                this,
+                "$partName terminé.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        mediaPlayer?.prepare()
+
+        mediaPlayer?.start()
+
+        isPlaying = true
+
+        Toast.makeText(
+            this,
+            "▶ Lecture : $partName",
+            Toast.LENGTH_SHORT
+        ).show()
+
+    } catch (
+        e: Exception
+    ) {
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        isPlaying = false
+
+        Toast.makeText(
+            this,
+            "Impossible de lire la partie $partName.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+    }
     private fun playHarmony() {
 
     if (harmonyOutputFile.isEmpty()) {
