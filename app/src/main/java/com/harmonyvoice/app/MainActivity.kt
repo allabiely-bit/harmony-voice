@@ -2046,25 +2046,19 @@ private fun stopPcmRecording() {
                 }
             }
 
-            val altoCreated =
-    harmonyEngine.createHarmonyVoice(
-        sourcePath,
-        altoHarmonyFile,
-        -2.0f
+            val harmonyResult =
+    harmonyEngine.createHarmonyParts(
+        inputWavPath = sourcePath,
+        sopranoWavPath = sopranoHarmonyFile,
+        altoWavPath = altoHarmonyFile,
+        tenorWavPath = tenorHarmonyFile
     )
 
-            val tenorCreated =
-    harmonyEngine.createHarmonyVoice(
-        sourcePath,
-        tenorHarmonyFile,
-        -5.0f
+if (harmonyResult == null) {
+    throw Exception(
+        "Impossible de créer les trois partitions."
     )
-
-            if (!altoCreated || !tenorCreated) {
-                throw Exception(
-                    "Impossible de créer les parties vocales."
-                )
-            }
+}
             val sopranoDuration =
     getWavDurationMs(sopranoHarmonyFile)
 
