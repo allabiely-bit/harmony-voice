@@ -1564,127 +1564,197 @@ class HarmonyEngine {
      * La synchronisation temporelle originale est conservée.
      * ============================================================
      */
-     fun createHarmonyParts(
-        inputWavPath: String,
-        sopranoWavPath: String,
-        altoWavPath: String,
-        tenorWavPath: String
-    ): HarmonyResult? {
+     data class HarmonySegment(
+    val startMs: Long,
+    val endMs: Long,
+    val pitchShift: Float
+)
 
-        val analysis =
-            analyzeHarmony(
-                inputWavPath
-            ) ?: return null
+private fun medianPitchShift(
+    segments: List<HarmonySegment>
+): Float {
 
-        /*
-         * Soprano :
-         * on conserve exactement la voix originale.
-         */
-        val sopranoFile =
-            File(inputWavPath)
-
-        try {
-
-            FileInputStream(
-                sopranoFile
-            ).use { input ->
-
-                FileOutputStream(
-                    sopranoWavPath
-                ).use { output ->
-
-                    input.copyTo(output)
-                }
-            }
-
-        } catch (_: Exception) {
-
-            return null
-        }
-
-        /*
-         * Calcul du décalage moyen.
-         *
-         * Cela permet d'utiliser le SoundTouch actuel sans
-         * modifier le tempo.
-         */
-
-        val altoShift =
-            if (
-                analysis.altoShifts.isNotEmpty()
-            ) {
-
-                analysis.altoShifts
-                    .average()
-                    .toFloat()
-
-            } else {
-
-                -3f
-            }
-
-        val tenorShift =
-            if (
-                analysis.tenorShifts.isNotEmpty()
-            ) {
-
-                analysis.tenorShifts
-                    .average()
-                    .toFloat()
-
-            } else {
-
-                -7f
-            }
-
-        val altoOk =
-            createHarmonyVoice(
-                inputWavPath =
-                    inputWavPath,
-
-                outputWavPath =
-                    altoWavPath,
-
-                pitchSemiTones =
-                    altoShift
-            )
-
-        if (!altoOk) {
-            return null
-        }
-
-        val tenorOk =
-            createHarmonyVoice(
-                inputWavPath =
-                    inputWavPath,
-
-                outputWavPath =
-                    tenorWavPath,
-
-                pitchSemiTones =
-                    tenorShift
-            )
-
-        if (!tenorOk) {
-            return null
-        }
-
-        return HarmonyResult(
-            analysis =
-                analysis,
-
-            sopranoPath =
-                sopranoWavPath,
-
-            altoPath =
-                altoWavPath,
-
- 
-            tenorPath =
-                tenorWavPath
-        )
+    if (segments.isEmpty()) {
+        return 0f
     }
 
+    val values =
+        segments
+            .map { it.pitchShift.toDouble() }
+            .sorted()
+
+    val middle =
+        values.size / 2
+
+    return if (values.size % 2 == 0) {
+
+        (
+            values[middle - 1] +
+                    values[middle]
+        ).toFloat() / 2f
+
+    } else {
+
+        values[middle].toFloat()
+    }
+}
+     fun createHarmonyParts(
+    inputWavPath: String,
+    sopranoWavPath: String,
+    altoWavPath: String,
+    tenorWavPath: String
+): HarmonyResult? {
+
+    val analysis =
+        analyzeHarmony(inputWavPath)
+            ?: return null
+
+    val notes = analysis.notes
+
+    if (notes.isEmpty()) {
+        return null
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * SOPRANO
+     * ------------------------------------------------------------
+     *
+     * Le soprano conserve exactement l'enregistrement original.
+     */
+    try {
+
+        FileInputStream(
+            inputWavPath
+        ).use { input ->
+
+            FileOutputStream(
+                sopranoWavPath
+            ).use { output ->
+
+                input.copyTo(output)
+            }
+        }
+
+    } catch (_: Exception) {
+
+        return null
+    }
+
+    /*
+     * ------------------------------------------------------------
+     * ALTO
+     * ------------------------------------------------------------
+     *
+     * Nous construisons ici le plan musical note par note.
+     *
+     * Chaque note conserve :
+     * - son début ;
+     * - sa fin ;
+     * - son tempo ;
+     * - sa position dans la chanson.
+     */
+    val altoPlan =
+        analysis.altoShifts.mapIndexed { index, shift ->
+
+            HarmonySegment(
+                startMs =
+                    notes[index].startMs,
+
+                endMs =
+                    notes[index].endMs,
+
+                pitchShift =
+                    shift
+            )
+        }
+
+    /*
+     * ------------------------------------------------------------
+     * TÉNOR
+     * ------------------------------------------------------------
+     */
+    val tenorPlan =
+        analysis.tenorShifts.mapIndexed { index, shift ->
+
+            HarmonySegment(
+                startMs =
+                    notes[index].startMs,
+
+                endMs =
+                    notes[index].endMs,
+
+                pitchShift =
+                    shift
+            )
+        }
+
+    /*
+     * Pour cette étape, nous utilisons encore
+     * la transformation SoundTouch existante.
+     *
+     * La prochaine étape remplacera cette partie par
+     * une véritable transformation segmentée.
+     *
+     * IMPORTANT :
+     * nous choisissons le décalage médian plutôt que
+     * la moyenne afin d'éviter qu'une note extrême
+     * déforme toute la partie.
+     */
+    val altoShift =
+        medianPitchShift(altoPlan)
+
+    val tenorShift =
+        medianPitchShift(tenorPlan)
+
+    val altoOk =
+        createHarmonyVoice(
+            inputWavPath =
+                inputWavPath,
+
+            outputWavPath =
+                altoWavPath,
+
+            pitchSemiTones =
+                altoShift
+        )
+
+    if (!altoOk) {
+        return null
+    }
+
+    val tenorOk =
+        createHarmonyVoice(
+            inputWavPath =
+                inputWavPath,
+
+            outputWavPath =
+                tenorWavPath,
+
+            pitchSemiTones =
+                tenorShift
+        )
+
+    if (!tenorOk) {
+        return null
+    }
+
+    return HarmonyResult(
+
+        analysis =
+            analysis,
+
+        sopranoPath =
+            sopranoWavPath,
+
+        altoPath =
+            altoWavPath,
+
+        tenorPath =
+            tenorWavPath
+    )
+     }
+     
     /*
      * ============================================================
      * MIXAGE
