@@ -1598,6 +1598,194 @@ private fun medianPitchShift(
         values[middle].toFloat()
     }
 }
+     /*
+ * ============================================================
+ * TRANSFORMATION HARMONIQUE SEGMENTÉE
+ * ============================================================
+ *
+ * Chaque note est traitée séparément avec son propre
+ * décalage musical.
+ *
+ * Cela évite d'appliquer une seule hauteur à toute
+ * la chanson.
+ */
+private fun createSegmentedHarmonyVoice(
+    inputWavPath: String,
+    outputWavPath: String,
+    segments: List<HarmonySegment>
+): Boolean {
+
+    return try {
+
+        val originalSamples =
+            readWavSamples(inputWavPath)
+                ?: return false
+
+        if (originalSamples.isEmpty()) {
+            return false
+        }
+
+        /*
+         * Le fichier final garde exactement la même
+         * durée que l'enregistrement original.
+         */
+        val resultSamples =
+            ShortArray(originalSamples.size)
+
+        val tempDirectory =
+            File(outputWavPath).parentFile
+                ?: File(inputWavPath).parentFile
+                ?: return false
+
+        if (!tempDirectory.exists()) {
+            tempDirectory.mkdirs()
+        }
+
+        for ((index, segment) in segments.withIndex()) {
+
+            if (segment.endMs <= segment.startMs) {
+                continue
+            }
+
+            val startSample =
+                (
+                    segment.startMs.toDouble() *
+                            sampleRate.toDouble() /
+                            1000.0
+                    ).toInt()
+                    .coerceIn(
+                        0,
+                        originalSamples.size
+                    )
+
+            val endSample =
+                (
+                    segment.endMs.toDouble() *
+                            sampleRate.toDouble() /
+                            1000.0
+                    ).toInt()
+                    .coerceIn(
+                        0,
+                        originalSamples.size
+                    )
+
+            if (endSample <= startSample) {
+                continue
+            }
+
+            val segmentLength =
+                endSample - startSample
+
+            val segmentSamples =
+                ShortArray(segmentLength)
+
+            System.arraycopy(
+                originalSamples,
+                startSample,
+                segmentSamples,
+                0,
+                segmentLength
+            )
+
+            /*
+             * Petit fichier temporaire contenant
+             * uniquement cette note.
+             */
+            val tempInput =
+                File(
+                    tempDirectory,
+                    "harmony_segment_in_$index.wav"
+                )
+
+            val tempOutput =
+                File(
+                    tempDirectory,
+                    "harmony_segment_out_$index.wav"
+                )
+
+            try {
+
+                writeWavSamples(
+                    tempInput.absolutePath,
+                    segmentSamples
+                )
+
+                /*
+                 * Transformation de cette note uniquement.
+                 */
+                val transformed =
+                    createHarmonyVoice(
+                        inputWavPath =
+                            tempInput.absolutePath,
+
+                        outputWavPath =
+                            tempOutput.absolutePath,
+
+                        pitchSemiTones =
+                            segment.pitchShift
+                    )
+
+                if (!transformed) {
+                    return false
+                }
+
+                val transformedSamples =
+                    readWavSamples(
+                        tempOutput.absolutePath
+                    ) ?: return false
+
+                /*
+                 * SoundTouch peut produire un nombre
+                 * d'échantillons légèrement différent.
+                 *
+                 * On remet donc exactement la longueur
+                 * temporelle de la note originale.
+                 */
+                val copyLength =
+                    min(
+                        segmentLength,
+                        transformedSamples.size
+                    )
+
+                if (copyLength > 0) {
+
+                    System.arraycopy(
+                        transformedSamples,
+                        0,
+                        resultSamples,
+                        startSample,
+                        copyLength
+                    )
+                }
+
+            } finally {
+
+                if (tempInput.exists()) {
+                    tempInput.delete()
+                }
+
+                if (tempOutput.exists()) {
+                    tempOutput.delete()
+                }
+            }
+        }
+
+        /*
+         * Écriture du fichier harmonique final.
+         */
+        writeWavSamples(
+            outputWavPath,
+            resultSamples
+        )
+
+        true
+
+    } catch (_: Exception) {
+
+        false
+    }
+}
+     
      fun createHarmonyParts(
     inputWavPath: String,
     sopranoWavPath: String,
@@ -1688,56 +1876,32 @@ private fun medianPitchShift(
                     shift
             )
         }
-
     /*
-     * Pour cette étape, nous utilisons encore
-     * la transformation SoundTouch existante.
-     *
-     * La prochaine étape remplacera cette partie par
-     * une véritable transformation segmentée.
-     *
-     * IMPORTANT :
-     * nous choisissons le décalage médian plutôt que
-     * la moyenne afin d'éviter qu'une note extrême
-     * déforme toute la partie.
-     */
-    val altoShift =
-        medianPitchShift(altoPlan)
+ * ------------------------------------------------------------
+ * TRANSFORMATION SEGMENTÉE
+ * ------------------------------------------------------------
+ */
+val altoOk =
+    createSegmentedHarmonyVoice(
+        inputWavPath = inputWavPath,
+        outputWavPath = altoWavPath,
+        segments = altoPlan
+    )
 
-    val tenorShift =
-        medianPitchShift(tenorPlan)
+if (!altoOk) {
+    return null
+}
 
-    val altoOk =
-        createHarmonyVoice(
-            inputWavPath =
-                inputWavPath,
+val tenorOk =
+    createSegmentedHarmonyVoice(
+        inputWavPath = inputWavPath,
+        outputWavPath = tenorWavPath,
+        segments = tenorPlan
+    )
 
-            outputWavPath =
-                altoWavPath,
-
-            pitchSemiTones =
-                altoShift
-        )
-
-    if (!altoOk) {
-        return null
-    }
-
-    val tenorOk =
-        createHarmonyVoice(
-            inputWavPath =
-                inputWavPath,
-
-            outputWavPath =
-                tenorWavPath,
-
-            pitchSemiTones =
-                tenorShift
-        )
-
-    if (!tenorOk) {
-        return null
-    }
+if (!tenorOk) {
+    return null
+}
 
     return HarmonyResult(
 
