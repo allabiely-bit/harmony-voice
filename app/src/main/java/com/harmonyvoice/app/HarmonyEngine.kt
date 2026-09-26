@@ -436,67 +436,126 @@ class HarmonyEngine {
      */
 
     private fun smoothDetectedNotes(
-        notes: List<DetectedNote>
-    ): List<DetectedNote> {
+    notes: List<DetectedNote>
+): List<DetectedNote> {
 
-        if (notes.isEmpty()) {
-            return emptyList()
-        }
-
-        val result =
-            mutableListOf<DetectedNote>()
-
-        var previous: DetectedNote? = null
-
-        for (note in notes) {
-
-            if (previous == null) {
-
-                previous = note
-                continue
-            }
-
-            val previousMidi =
-                hzToMidi(previous!!.pitchHz)
-
-            val currentMidi =
-                hzToMidi(note.pitchHz)
-
-            val difference =
-                abs(currentMidi - currentMidi)
-
-            if (difference <= 1.0) {
-
-                previous =
-                    DetectedNote(
-                        pitchHz =
-                            (
-                                    previous!!.pitchHz +
-                                            note.pitchHz
-                                    ) / 2f,
-
-                        startMs =
-                            previous!!.startMs,
-
-                        endMs =
-                            note.endMs
-                    )
-
-            } else {
-
-                result.add(previous!!)
-
-                previous = note
-            }
-        }
-
-        if (previous != null) {
-            result.add(previous!!)
-        }
-
-        return result
+    if (notes.isEmpty()) {
+        return emptyList()
     }
 
+    val result = mutableListOf<DetectedNote>()
+
+    var currentStart = notes.first().startMs
+    var currentEnd = notes.first().endMs
+    var pitchSum = notes.first().pitchHz.toDouble()
+    var pitchCount = 1
+
+    var currentMidi =
+        round(
+            hzToMidi(
+                notes.first().pitchHz
+            )
+        ).toInt()
+
+    for (index in 1 until notes.size) {
+
+        val note = notes[index]
+
+        val noteMidi =
+            round(
+                hzToMidi(
+                    note.pitchHz
+                )
+            ).toInt()
+
+        val difference =
+            abs(noteMidi - currentMidi)
+
+        val isContinuous =
+            note.startMs <= currentEnd + 40L
+
+        /*
+         * Une différence de 0 ou 1 demi-ton
+         * peut appartenir à la même note chantée.
+         *
+         * Au-delà, nous considérons qu'il s'agit
+         * d'un véritable changement de note.
+         */
+        if (
+            difference <= 1 &&
+            isContinuous
+        ) {
+
+            currentEnd =
+                note.endMs
+
+            pitchSum +=
+                note.pitchHz.toDouble()
+
+            pitchCount++
+
+            currentMidi =
+                round(
+                    pitchSum /
+                            pitchCount
+                ).toInt()
+
+        } else {
+
+            result.add(
+                DetectedNote(
+                    pitchHz =
+                        (
+                            pitchSum /
+                                    pitchCount
+                            ).toFloat(),
+
+                    startMs =
+                        currentStart,
+
+                    endMs =
+                        currentEnd
+                )
+            )
+
+            currentStart =
+                note.startMs
+
+            currentEnd =
+                note.endMs
+
+            pitchSum =
+                note.pitchHz.toDouble()
+
+            pitchCount = 1
+
+            currentMidi =
+                noteMidi
+        }
+    }
+
+    /*
+     * Ajouter la dernière note.
+     */
+    result.add(
+        DetectedNote(
+            pitchHz =
+                (
+                    pitchSum /
+                            pitchCount
+                    ).toFloat(),
+
+            startMs =
+                currentStart,
+
+            endMs =
+                currentEnd
+        )
+    )
+
+    return result
+    }
+    
     /*
      * ============================================================
      * PITCH
