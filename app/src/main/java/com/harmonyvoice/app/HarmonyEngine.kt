@@ -1472,6 +1472,16 @@ class HarmonyEngine {
                 }
             }
             soundTouch.flush()
+            soundTouch.flush()
+
+android.util.Log.d(
+    "HARMONY_VOICE",
+    "SoundTouch outputDataSize=$outputDataSize"
+)
+
+while (
+    !soundTouch.isEmpty()
+) {
 
             while (
                 !soundTouch.isEmpty()
