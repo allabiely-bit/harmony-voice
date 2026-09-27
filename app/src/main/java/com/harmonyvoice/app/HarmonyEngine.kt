@@ -1609,6 +1609,7 @@ private fun medianPitchShift(
  * Cela évite d'appliquer une seule hauteur à toute
  * la chanson.
  */
+
 private fun createSegmentedHarmonyVoice(
     inputWavPath: String,
     outputWavPath: String,
@@ -1641,13 +1642,25 @@ private fun createSegmentedHarmonyVoice(
             tempDirectory.mkdirs()
         }
 
+        /*
+         * Marge audio autour de chaque note.
+         *
+         * Cette marge donne à SoundTouch suffisamment
+         * de matière audio pour effectuer correctement
+         * la transformation de hauteur.
+         */
+        val contextMs = 120L
+
         for ((index, segment) in segments.withIndex()) {
 
             if (segment.endMs <= segment.startMs) {
                 continue
             }
 
-            val startSample =
+            /*
+             * Début réel de la note.
+             */
+            val noteStartSample =
                 (
                     segment.startMs.toDouble() *
                             sampleRate.toDouble() /
@@ -1658,7 +1671,10 @@ private fun createSegmentedHarmonyVoice(
                         originalSamples.size
                     )
 
-            val endSample =
+            /*
+             * Fin réelle de la note.
+             */
+            val noteEndSample =
                 (
                     segment.endMs.toDouble() *
                             sampleRate.toDouble() /
@@ -1669,28 +1685,51 @@ private fun createSegmentedHarmonyVoice(
                         originalSamples.size
                     )
 
-            if (endSample <= startSample) {
+            if (noteEndSample <= noteStartSample) {
                 continue
             }
 
-            val segmentLength =
-                endSample - startSample
+            /*
+             * Ajout d'un contexte avant et après.
+             */
+            val contextSamples =
+                (
+                    contextMs.toDouble() *
+                            sampleRate.toDouble() /
+                            1000.0
+                    ).toInt()
 
-            val segmentSamples =
-                ShortArray(segmentLength)
+            val processStartSample =
+                (
+                    noteStartSample - contextSamples
+                ).coerceAtLeast(0)
+
+            val processEndSample =
+                (
+                    noteEndSample + contextSamples
+                ).coerceAtMost(
+                    originalSamples.size
+                )
+
+            if (processEndSample <= processStartSample) {
+                continue
+            }
+
+            val processLength =
+                processEndSample -
+                        processStartSample
+
+            val processSamples =
+                ShortArray(processLength)
 
             System.arraycopy(
                 originalSamples,
-                startSample,
-                segmentSamples,
+                processStartSample,
+                processSamples,
                 0,
-                segmentLength
+                processLength
             )
 
-            /*
-             * Petit fichier temporaire contenant
-             * uniquement cette note.
-             */
             val tempInput =
                 File(
                     tempDirectory,
@@ -1707,11 +1746,12 @@ private fun createSegmentedHarmonyVoice(
 
                 writeWavSamples(
                     tempInput.absolutePath,
-                    segmentSamples
+                    processSamples
                 )
 
                 /*
-                 * Transformation de cette note uniquement.
+                 * Transformation de la note avec
+                 * son contexte audio.
                  */
                 val transformed =
                     createHarmonyVoice(
@@ -1735,25 +1775,39 @@ private fun createSegmentedHarmonyVoice(
                     ) ?: return false
 
                 /*
-                 * SoundTouch peut produire un nombre
-                 * d'échantillons légèrement différent.
-                 *
-                 * On remet donc exactement la longueur
-                 * temporelle de la note originale.
+                 * Position de la note à l'intérieur
+                 * du segment avec contexte.
                  */
+                val noteOffset =
+                    noteStartSample -
+                            processStartSample
+
+                if (
+                    noteOffset < 0 ||
+                    noteOffset >=
+                    transformedSamples.size
+                ) {
+                    continue
+                }
+
+                val noteLength =
+                    noteEndSample -
+                            noteStartSample
+
                 val copyLength =
                     min(
-                        segmentLength,
-                        transformedSamples.size
+                        noteLength,
+                        transformedSamples.size -
+                                noteOffset
                     )
 
                 if (copyLength > 0) {
 
                     System.arraycopy(
                         transformedSamples,
-                        0,
+                        noteOffset,
                         resultSamples,
-                        startSample,
+                        noteStartSample,
                         copyLength
                     )
                 }
@@ -1784,8 +1838,7 @@ private fun createSegmentedHarmonyVoice(
 
         false
     }
-}
-     
+}           
      fun createHarmonyParts(
     inputWavPath: String,
     sopranoWavPath: String,
