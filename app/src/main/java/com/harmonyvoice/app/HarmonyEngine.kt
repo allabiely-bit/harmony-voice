@@ -1472,9 +1472,7 @@ class HarmonyEngine {
                 }
             }
             soundTouch.flush()
-            soundTouch.flush()
-
-android.util.Log.d(
+            android.util.Log.d(
     "HARMONY_VOICE",
     "SoundTouch outputDataSize=$outputDataSize"
 )
@@ -1482,10 +1480,6 @@ android.util.Log.d(
 while (
     !soundTouch.isEmpty()
 ) {
-
-            while (
-                !soundTouch.isEmpty()
-            ) {
 
                 val received =
                     soundTouch.receiveSamplesI16(
