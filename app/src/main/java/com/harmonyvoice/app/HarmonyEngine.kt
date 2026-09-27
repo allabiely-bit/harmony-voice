@@ -495,10 +495,14 @@ class HarmonyEngine {
             pitchCount++
 
             currentMidi =
-                round(
-                    pitchSum /
-                            pitchCount
-                ).toInt()
+    round(
+        hzToMidi(
+            (
+                pitchSum /
+                        pitchCount
+                ).toFloat()
+        )
+    ).toInt()
 
         } else {
 
