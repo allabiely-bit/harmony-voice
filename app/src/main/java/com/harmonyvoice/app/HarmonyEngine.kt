@@ -1115,95 +1115,88 @@ class HarmonyEngine {
     }
 
     private fun harmonyMidi(
-        midi: Double,
-        keyRoot: Int,
-        isMinor: Boolean,
-        degreeOffset: Int
-    ): Double {
+    midi: Double,
+    keyRoot: Int,
+    isMinor: Boolean,
+    degreeOffset: Int
+): Double {
 
-        if (keyRoot < 0) {
-            return midi + degreeOffset
-        }
-
-        val roundedMidi =
-            round(midi).toInt()
-
-        val pitchClass =
-            ((roundedMidi % 12) + 12) % 12
-
-        val scale =
-            if (isMinor) {
-                minorScale
-            } else {
-                majorScale
-            }
-
-        val degree =
-            nearestScaleDegree(
-                pitchClass,
-                keyRoot,
-                isMinor
-            )
-
-        var targetDegree =
-            degree + degreeOffset
-
-        var octaveShift = 0
-
-        while (targetDegree < 0) {
-
-            targetDegree +=
-                scale.size
-
-            octaveShift--
-        }
-
-        while (
-            targetDegree >= scale.size
-        ) {
-
-            targetDegree -=
-                scale.size
-
-            octaveShift++
-        }
-
-        val currentScalePitch =
-            keyRoot + scale[degree]
-        val targetScalePitch =
-            keyRoot +
-                    scale[targetDegree] +
-                    12 * octaveShift
-
-        var currentPitch =
-            roundedMidi
-
-        while (
-            currentPitch -
-            currentScalePitch >
-            6
-        ) {
-            currentPitch -= 12
-        }
-
-        while (
-            currentScalePitch -
-            currentPitch >
-            6
-        ) {
-            currentPitch += 12
-        }
-
-        val result =
-            currentPitch +
-                    (
-                            targetScalePitch -
-                                    currentScalePitch
-                            )
-
-        return result.toDouble()
+    if (keyRoot < 0) {
+        return midi + degreeOffset
     }
 
+    val scale =
+        if (isMinor) {
+            minorScale
+        } else {
+            majorScale
+        }
+
+    val roundedMidi =
+        round(midi).toInt()
+
+    val pitchClass =
+        ((roundedMidi % 12) + 12) % 12
+
+    val degree =
+        nearestScaleDegree(
+            pitchClass = pitchClass,
+            keyRoot = keyRoot,
+            isMinor = isMinor
+        )
+
+    val targetDegree =
+        degree + degreeOffset
+
+    val octaveOffset =
+        Math.floorDiv(
+            targetDegree,
+            scale.size
+        )
+
+    val normalizedTargetDegree =
+        Math.floorMod(
+            targetDegree,
+            scale.size
+        )
+
+    val sourceScalePitch =
+        keyRoot +
+                scale[degree]
+
+    val targetScalePitch =
+        keyRoot +
+                scale[normalizedTargetDegree] +
+                12 * octaveOffset
+
+    var sourcePitch =
+        roundedMidi
+
+    while (
+        sourcePitch -
+        sourceScalePitch >
+        6
+    ) {
+        sourcePitch -= 12
+    }
+
+    while (
+        sourceScalePitch -
+        sourcePitch >
+        6
+    ) {
+        sourcePitch += 12
+    }
+
+    return (
+        sourcePitch +
+                (
+                    targetScalePitch -
+                            sourceScalePitch
+                    )
+        ).toDouble()
+    }
+    
     private fun calculateHarmonyShift(
         pitchHz: Float,
         keyRoot: Int,
@@ -1262,12 +1255,24 @@ class HarmonyEngine {
             }
         val alto =
     notes.map {
-        -4f
+
+        calculateHarmonyShift(
+            pitchHz = it.pitchHz,
+            keyRoot = analysis.keyRoot,
+            isMinor = analysis.isMinor,
+            degreeOffset = -2
+        )
     }
 
-        val tenor =
+val tenor =
     notes.map {
-        -7f
+
+        calculateHarmonyShift(
+            pitchHz = it.pitchHz,
+            keyRoot = analysis.keyRoot,
+            isMinor = analysis.isMinor,
+            degreeOffset = -4
+        )
     }
 
         return HarmonyAnalysis(
