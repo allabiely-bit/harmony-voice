@@ -1260,28 +1260,15 @@ class HarmonyEngine {
                     degreeOffset = 0
                 )
             }
-
         val alto =
-            notes.map {
-
-                calculateHarmonyShift(
-                    pitchHz = it.pitchHz,
-                    keyRoot = analysis.keyRoot,
-                    isMinor = analysis.isMinor,
-                    degreeOffset = -2
-                )
-            }
+    notes.map {
+        -4f
+    }
 
         val tenor =
-            notes.map {
-
-                calculateHarmonyShift(
-                    pitchHz = it.pitchHz,
-                    keyRoot = analysis.keyRoot,
-                    isMinor = analysis.isMinor,
-                    degreeOffset = -4
-                )
-            }
+    notes.map {
+        -7f
+    }
 
         return HarmonyAnalysis(
             tempoBpm =
@@ -1853,6 +1840,15 @@ private fun createSegmentedHarmonyVoice(
     val analysis =
         analyzeHarmony(inputWavPath)
             ?: return null
+         android.util.Log.d(
+    "HARMONY_VOICE",
+    "ALTO SHIFTS = ${analysis.altoShifts.take(20)}"
+)
+
+android.util.Log.d(
+    "HARMONY_VOICE",
+    "TENOR SHIFTS = ${analysis.tenorShifts.take(20)}"
+)
 
     val notes = analysis.notes
 
