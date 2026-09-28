@@ -1864,6 +1864,10 @@ android.util.Log.d(
     if (notes.isEmpty()) {
         return null
     }
+    android.util.Log.d(
+    "HARMONY_VOICE",
+    "NOMBRE DE NOTES = ${notes.size}"
+)
 
     /*
      * ------------------------------------------------------------
