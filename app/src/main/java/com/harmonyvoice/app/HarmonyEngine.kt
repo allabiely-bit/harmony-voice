@@ -1278,6 +1278,20 @@ class HarmonyEngine {
             degreeOffset = -2
         )
     }
+    android.util.Log.d(
+    "HARMONY_VOICE",
+    "KEY = ${analysis.keyName} root=${analysis.keyRoot} minor=${analysis.isMinor}"
+)
+
+android.util.Log.d(
+    "HARMONY_VOICE",
+    "ALTO CALCULATED = ${alto.take(30)}"
+)
+
+android.util.Log.d(
+    "HARMONY_VOICE",
+    "TENOR CALCULATED = ${tenor.take(30)}"
+)
         return HarmonyAnalysis(
             tempoBpm =
                 analysis.tempoBpm,
