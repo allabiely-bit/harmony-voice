@@ -1623,30 +1623,25 @@ private fun createSegmentedHarmonyVoice(
         }
 
         /*
-         * IMPORTANT :
+         * VERSION DE TEST CONTRÔLÉE
          *
-         * On ne traite plus chaque note séparément.
+         * On utilise directement le décalage musical
+         * de la première note.
          *
-         * Toute la voix est envoyée une seule fois
-         * dans SoundTouch.
-         *
-         * Cela évite :
-         * - les coupures entre notes ;
-         * - les fichiers temporaires ;
-         * - les multiples flush();
-         * - le ronronnement provoqué par le traitement
-         *   indépendant de chaque petit segment.
+         * Cela permet de vérifier que les décalages
+         * calculés par l'analyse produisent bien une
+         * vraie voix avec SoundTouch.
          */
 
         val pitchShift =
-            medianPitchShift(segments)
+            segments.first().pitchShift
 
         android.util.Log.d(
             "HARMONY_VOICE",
-            "CONTINUOUS PITCH SHIFT = $pitchShift"
+            "TEST PITCH SHIFT = $pitchShift"
         )
 
-        return createHarmonyVoice(
+        createHarmonyVoice(
             inputWavPath =
                 inputWavPath,
 
