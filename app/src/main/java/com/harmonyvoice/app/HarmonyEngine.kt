@@ -1185,28 +1185,62 @@ class HarmonyEngine {
     
     
     private fun calculateHarmonyShift(
-        pitchHz: Float,
-        keyRoot: Int,
-        isMinor: Boolean,
-        degreeOffset: Int
-    ): Float {
+    pitchHz: Float,
+    keyRoot: Int,
+    isMinor: Boolean,
+    degreeOffset: Int
+): Float {
 
-        val originalMidi =
-            hzToMidi(pitchHz)
-
-        val targetMidi =
-            harmonyMidi(
-                midi = originalMidi,
-                keyRoot = keyRoot,
-                isMinor = isMinor,
-                degreeOffset = degreeOffset
-            )
-
-        return (
-                targetMidi -
-                        originalMidi
-                ).toFloat()
+    if (pitchHz <= 0f || keyRoot < 0) {
+        return degreeOffset.toFloat()
     }
+
+    val originalMidi = hzToMidi(pitchHz)
+
+    val scale = if (isMinor) {
+        minorScale
+    } else {
+        majorScale
+    }
+
+    val roundedMidi = round(originalMidi).toInt()
+
+    val pitchClass =
+        ((roundedMidi % 12) + 12) % 12
+
+    val sourceDegree = nearestScaleDegree(
+        pitchClass = pitchClass,
+        keyRoot = keyRoot,
+        isMinor = isMinor
+    )
+
+    val targetDegree = sourceDegree + degreeOffset
+
+    val octaveOffset =
+        Math.floorDiv(targetDegree, scale.size)
+
+    val normalizedTargetDegree =
+        Math.floorMod(targetDegree, scale.size)
+
+    val sourceScaleMidi =
+        keyRoot +
+        scale[sourceDegree] +
+        12 * Math.floorDiv(
+            roundedMidi - (keyRoot + scale[sourceDegree]),
+            12
+        )
+
+    val targetScaleMidi =
+        keyRoot +
+        scale[normalizedTargetDegree] +
+        12 * octaveOffset
+
+    val shift =
+        targetScaleMidi - sourceScaleMidi
+
+    return shift.toFloat()
+    }
+    
 
     /*
      * 
