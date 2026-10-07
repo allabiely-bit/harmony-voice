@@ -1117,7 +1117,6 @@ class HarmonyEngine {
 
         return bestDegree
     }
-
     private fun harmonyMidi(
     midi: Double,
     keyRoot: Int,
@@ -1129,25 +1128,22 @@ class HarmonyEngine {
         return midi + degreeOffset
     }
 
-    val scale =
-        if (isMinor) {
-            minorScale
-        } else {
-            majorScale
-        }
+    val scale = if (isMinor) {
+        minorScale
+    } else {
+        majorScale
+    }
 
-    val roundedMidi =
-        round(midi).toInt()
+    val roundedMidi = round(midi).toInt()
 
     val pitchClass =
         ((roundedMidi % 12) + 12) % 12
 
-    val degree =
-        nearestScaleDegree(
-            pitchClass = pitchClass,
-            keyRoot = keyRoot,
-            isMinor = isMinor
-        )
+    val degree = nearestScaleDegree(
+        pitchClass = pitchClass,
+        keyRoot = keyRoot,
+        isMinor = isMinor
+    )
 
     val targetDegree =
         degree + degreeOffset
@@ -1164,42 +1160,29 @@ class HarmonyEngine {
             scale.size
         )
 
-    val sourceScalePitch =
+    val sourcePitchClass =
+        (keyRoot + scale[degree]) % 12
+
+    val targetPitchClass =
+        (keyRoot + scale[normalizedTargetDegree]) % 12
+
+    val sourceMidi =
+        roundedMidi -
+        ((roundedMidi - sourcePitchClass + 6) / 12) * 12
+
+    val targetMidi =
         keyRoot +
-                scale[degree]
+        scale[normalizedTargetDegree] +
+        (sourceMidi - keyRoot) / 12 * 12 +
+        octaveOffset * 12
 
-    val targetScalePitch =
-        keyRoot +
-                scale[normalizedTargetDegree] +
-                12 * octaveOffset
+    val result =
+        targetMidi +
+        (midi - roundedMidi)
 
-    var sourcePitch =
-        roundedMidi
-
-    while (
-        sourcePitch -
-        sourceScalePitch >
-        6
-    ) {
-        sourcePitch -= 12
-    }
-
-    while (
-        sourceScalePitch -
-        sourcePitch >
-        6
-    ) {
-        sourcePitch += 12
-    }
-
-    return (
-        sourcePitch +
-                (
-                    targetScalePitch -
-                            sourceScalePitch
-                    )
-        ).toDouble()
-    }
+    return result
+}
+    
     
     private fun calculateHarmonyShift(
         pitchHz: Float,
