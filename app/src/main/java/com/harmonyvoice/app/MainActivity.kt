@@ -2056,6 +2056,21 @@ if (harmonyResult == null) {
         "Impossible de créer les trois partitions."
     )
 }
+
+runOnUiThread {
+
+    android.app.AlertDialog.Builder(this)
+        .setTitle("🔎 DIAGNOSTIC HARMONY")
+        .setMessage(
+            "TONALITÉ : ${harmonyResult.analysis.keyName}\n" +
+            "ROOT : ${harmonyResult.analysis.keyRoot}\n" +
+            "MINEUR : ${harmonyResult.analysis.isMinor}\n\n" +
+            "ALTO :\n${harmonyResult.analysis.altoShifts.take(30)}\n\n" +
+            "TÉNOR :\n${harmonyResult.analysis.tenorShifts.take(30)}"
+        )
+        .setPositiveButton("OK", null)
+        .show()
+}           
             val sopranoDuration =
     getWavDurationMs(sopranoHarmonyFile)
 
