@@ -1263,38 +1263,18 @@ class HarmonyEngine {
         if (notes.isEmpty()) {
             return null
         }
+        val soprano = notes.map {
+    0f
+}
 
-        val soprano =
-            notes.map {
+        val alto = notes.map {
+    -4f
+}
 
-                calculateHarmonyShift(
-                    pitchHz = it.pitchHz,
-                    keyRoot = analysis.keyRoot,
-                    isMinor = analysis.isMinor,
-                    degreeOffset = 0
-                )
-            }
-        val alto =
-    notes.map {
-
-        calculateHarmonyShift(
-            pitchHz = it.pitchHz,
-            keyRoot = analysis.keyRoot,
-            isMinor = analysis.isMinor,
-            degreeOffset = -1
-        )
-    }
-
-        val tenor =
-    notes.map {
-
-        calculateHarmonyShift(
-            pitchHz = it.pitchHz,
-            keyRoot = analysis.keyRoot,
-            isMinor = analysis.isMinor,
-            degreeOffset = -2
-        )
-    }
+        val tenor = notes.map {
+    -7f
+}
+        
     android.util.Log.d(
     "HARMONY_VOICE",
     "KEY = ${analysis.keyName} root=${analysis.keyRoot} minor=${analysis.isMinor}"
