@@ -884,94 +884,120 @@ class HarmonyEngine {
         )
 
     private fun detectKey(
-        notes: List<DetectedNote>
-    ): KeyResult {
+    notes: List<DetectedNote>
+): KeyResult {
 
-        if (notes.isEmpty()) {
-
-            return KeyResult(
-                name = "Inconnue",
-                root = -1,
-                isMinor = false
-            )
-        }
-
-        val histogram =
-            DoubleArray(12)
-
-        for (note in notes) {
-
-            val midi =
-                hzToMidi(note.pitchHz)
-
-            val pitchClass =
-                ((round(midi).toInt() % 12) + 12) % 12
-
-            val duration =
-                max(
-                    1L,
-                    note.endMs - note.startMs
-                )
-
-            histogram[pitchClass] +=
-                duration.toDouble()
-        }
-
-        var bestScore =
-                      Double.NEGATIVE_INFINITY
-
-        var bestRoot = 0
-        var bestMinor = false
-
-        for (root in 0 until 12) {
-
-            val majorScore =
-                profileScore(
-                    histogram,
-                    majorProfile,
-                    root
-                )
-
-            if (majorScore > bestScore) {
-
-                bestScore = majorScore
-                bestRoot = root
-                bestMinor = false
-            }
-
-            val minorScore =
-                profileScore(
-                    histogram,
-                    minorProfile,
-                    root
-                )
-
-            if (minorScore > bestScore) {
-
-                bestScore = minorScore
-                bestRoot = root
-                bestMinor = true
-            }
-        }
-
-        val suffix =
-            if (bestMinor) {
-                " mineur"
-            } else {
-                " majeur"
-            }
-
+    if (notes.isEmpty()) {
         return KeyResult(
-            name =
-                noteNames[bestRoot] + suffix,
-
-            root =
-                bestRoot,
-
-            isMinor =
-                bestMinor
+            name = "Inconnue",
+            root = -1,
+            isMinor = false
         )
     }
+
+    val histogram = DoubleArray(12)
+
+    // Construire l'histogramme pondéré par la durée
+    for (note in notes) {
+
+        if (note.pitchHz <= 0f) continue
+
+        val midi = hzToMidi(note.pitchHz)
+
+        val pitchClass =
+            ((round(midi).toInt() % 12) + 12) % 12
+
+        val duration =
+            max(
+                1L,
+                note.endMs - note.startMs
+            )
+
+        histogram[pitchClass] +=
+            duration.toDouble()
+    }
+
+    val totalEnergy =
+        histogram.sum()
+
+    if (totalEnergy <= 0.0) {
+        return KeyResult(
+            name = "Inconnue",
+            root = -1,
+            isMinor = false
+        )
+    }
+
+    /*
+     * Normalisation.
+     *
+     * On transforme l'histogramme en proportions.
+     * Cela évite qu'une durée globale plus longue
+     * modifie artificiellement le résultat.
+     */
+    for (i in 0 until 12) {
+        histogram[i] =
+            histogram[i] / totalEnergy
+    }
+
+    var bestScore =
+        Double.NEGATIVE_INFINITY
+
+    var bestRoot = 0
+    var bestMinor = false
+
+    /*
+     * Test des 12 tonalités majeures
+     * et des 12 tonalités mineures.
+     */
+    for (root in 0 until 12) {
+
+        val majorScore =
+            profileScore(
+                histogram,
+                majorProfile,
+                root
+            )
+
+        if (majorScore > bestScore) {
+            bestScore = majorScore
+            bestRoot = root
+            bestMinor = false
+        }
+
+        val minorScore =
+            profileScore(
+                histogram,
+                minorProfile,
+                root
+            )
+
+        if (minorScore > bestScore) {
+            bestScore = minorScore
+            bestRoot = root
+            bestMinor = true
+        }
+    }
+
+    val suffix =
+        if (bestMinor) {
+            " mineur"
+        } else {
+            " majeur"
+        }
+
+    return KeyResult(
+        name =
+            noteNames[bestRoot] + suffix,
+
+        root =
+            bestRoot,
+
+        isMinor =
+            bestMinor
+    )
+    }
+        
 
     private fun profileScore(
         histogram: DoubleArray,
