@@ -1259,14 +1259,25 @@ class HarmonyEngine {
             }
         val alto =
     notes.map {
-        -4f
+
+        calculateHarmonyShift(
+            pitchHz = it.pitchHz,
+            keyRoot = analysis.keyRoot,
+            isMinor = analysis.isMinor,
+            degreeOffset = -1
+        )
     }
 
         val tenor =
     notes.map {
-        -7f
-    }
 
+        calculateHarmonyShift(
+            pitchHz = it.pitchHz,
+            keyRoot = analysis.keyRoot,
+            isMinor = analysis.isMinor,
+            degreeOffset = -2
+        )
+    }
         return HarmonyAnalysis(
             tempoBpm =
                 analysis.tempoBpm,
