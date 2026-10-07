@@ -91,12 +91,19 @@ jobs:
         run: |
           echo "===== MÉTHODES SOUND TOUCH ====="
 
-          JAR=$(find ~/.gradle/caches/modules-2/files-2.1/com.tianscar.soundtouch \
+          JAR=$(find ~/.gradle/caches/modules-2/files-2.1.1/com.tianscar.soundtouch \
             -type f -name "soundtouch-jni-core-1.1.1.jar" \
             | head -n 1)
 
-          javap -classpath "$JAR" -public \
-            com.tianscar.soundtouch.SoundTouch
+          echo "JAR TROUVÉ : $JAR"
+
+          if [ -n "$JAR" ] && [ -f "$JAR" ]; then
+            javap -classpath "$JAR" -public \
+              com.tianscar.soundtouch.SoundTouch \
+              || true
+          else
+            echo "JAR SoundTouch Core non trouvé."
+          fi
       - name: Vérifier la configuration audio
         run: |
           echo "===== CONFIGURATION AUDIO HARMONY VOICE ====="
