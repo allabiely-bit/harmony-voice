@@ -897,6 +897,9 @@ class HarmonyEngine {
 
     val histogram = DoubleArray(12)
 
+    // Poids des notes selon leur durée.
+    // Les notes longues ont davantage d'importance
+    // dans la détermination de la tonalité.
     for (note in notes) {
 
         if (note.pitchHz <= 0f) continue
@@ -916,10 +919,10 @@ class HarmonyEngine {
             duration.toDouble()
     }
 
-    val totalEnergy =
+    val total =
         histogram.sum()
 
-    if (totalEnergy <= 0.0) {
+    if (total <= 0.0) {
         return KeyResult(
             name = "Inconnue",
             root = -1,
@@ -927,21 +930,31 @@ class HarmonyEngine {
         )
     }
 
-    /*
-     * Normalisation de l'histogramme.
-     */
+    // Normalisation
     for (i in 0 until 12) {
-        histogram[i] =
-            histogram[i] / totalEnergy
+        histogram[i] /= total
     }
 
-    /*
-     * La dernière note de la mélodie.
-     *
-     * Elle donne un indice supplémentaire sur
-     * la tonique et permet notamment de mieux
-     * distinguer les tonalités relatives.
-     */
+    // Note de début
+    val firstNote =
+        notes.firstOrNull()
+
+    val firstPitchClass =
+        if (
+            firstNote != null &&
+            firstNote.pitchHz > 0f
+        ) {
+
+            val midi =
+                hzToMidi(firstNote.pitchHz)
+
+            ((round(midi).toInt() % 12) + 12) % 12
+
+        } else {
+            -1
+        }
+
+    // Note finale
     val lastNote =
         notes.lastOrNull()
 
@@ -951,10 +964,10 @@ class HarmonyEngine {
             lastNote.pitchHz > 0f
         ) {
 
-            val lastMidi =
+            val midi =
                 hzToMidi(lastNote.pitchHz)
 
-            ((round(lastMidi).toInt() % 12) + 12) % 12
+            ((round(midi).toInt() % 12) + 12) % 12
 
         } else {
             -1
@@ -968,39 +981,40 @@ class HarmonyEngine {
 
     for (root in 0 until 12) {
 
-        /*
-         * Score statistique classique.
-         */
-        val majorScore =
+        // =========================
+        // MAJEUR
+        // =========================
+
+        var majorScore =
             profileScore(
                 histogram,
                 majorProfile,
                 root
             )
 
-        var adjustedMajorScore =
-            majorScore
-
-        /*
-         * Petit bonus si la dernière note
-         * correspond à la tonique.
-         *
-         * Le bonus reste volontairement faible :
-         * la dernière note ne doit pas remplacer
-         * l'analyse musicale globale.
-         */
+        // La note finale est un indice
+        // important de la tonique.
         if (
             lastPitchClass >= 0 &&
             lastPitchClass == root
         ) {
-            adjustedMajorScore += 0.20
+            majorScore += 0.35
+        }
+
+        // La note de départ apporte
+        // un indice plus faible.
+        if (
+            firstPitchClass >= 0 &&
+            firstPitchClass == root
+        ) {
+            majorScore += 0.10
         }
 
         if (
-            adjustedMajorScore > bestScore
+            majorScore > bestScore
         ) {
             bestScore =
-                adjustedMajorScore
+                majorScore
 
             bestRoot =
                 root
@@ -1009,31 +1023,36 @@ class HarmonyEngine {
                 false
         }
 
-        /*
-         * Analyse mineure.
-         */
-        val minorScore =
+        // =========================
+        // MINEUR
+        // =========================
+
+        var minorScore =
             profileScore(
                 histogram,
                 minorProfile,
                 root
             )
 
-        var adjustedMinorScore =
-            minorScore
-
         if (
             lastPitchClass >= 0 &&
             lastPitchClass == root
         ) {
-            adjustedMinorScore += 0.20
+            minorScore += 0.35
         }
 
         if (
-            adjustedMinorScore > bestScore
+            firstPitchClass >= 0 &&
+            firstPitchClass == root
+        ) {
+            minorScore += 0.10
+        }
+
+        if (
+            minorScore > bestScore
         ) {
             bestScore =
-                adjustedMinorScore
+                minorScore
 
             bestRoot =
                 root
@@ -1061,7 +1080,6 @@ class HarmonyEngine {
             bestMinor
     )
     }
-
     private fun profileScore(
         histogram: DoubleArray,
         profile: DoubleArray,
