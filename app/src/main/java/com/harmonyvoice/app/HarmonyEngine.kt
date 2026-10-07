@@ -1618,227 +1618,52 @@ private fun createSegmentedHarmonyVoice(
 
     return try {
 
-        val originalSamples =
-            readWavSamples(inputWavPath)
-                ?: return false
-
-        if (originalSamples.isEmpty()) {
+        if (segments.isEmpty()) {
             return false
         }
 
         /*
-         * Le fichier final garde exactement la même
-         * durée que l'enregistrement original.
-         */
-        val resultSamples =
-            ShortArray(originalSamples.size)
-
-        val tempDirectory =
-            File(outputWavPath).parentFile
-                ?: File(inputWavPath).parentFile
-                ?: return false
-
-        if (!tempDirectory.exists()) {
-            tempDirectory.mkdirs()
-        }
-
-        /*
-         * Marge audio autour de chaque note.
+         * IMPORTANT :
          *
-         * Cette marge donne à SoundTouch suffisamment
-         * de matière audio pour effectuer correctement
-         * la transformation de hauteur.
+         * On ne traite plus chaque note séparément.
+         *
+         * Toute la voix est envoyée une seule fois
+         * dans SoundTouch.
+         *
+         * Cela évite :
+         * - les coupures entre notes ;
+         * - les fichiers temporaires ;
+         * - les multiples flush();
+         * - le ronronnement provoqué par le traitement
+         *   indépendant de chaque petit segment.
          */
-        val contextMs = 120L
 
-        for ((index, segment) in segments.withIndex()) {
+        val pitchShift =
+            medianPitchShift(segments)
 
-            if (segment.endMs <= segment.startMs) {
-                continue
-            }
-
-            /*
-             * Début réel de la note.
-             */
-            val noteStartSample =
-                (
-                    segment.startMs.toDouble() *
-                            sampleRate.toDouble() /
-                            1000.0
-                    ).toInt()
-                    .coerceIn(
-                        0,
-                        originalSamples.size
-                    )
-
-            /*
-             * Fin réelle de la note.
-             */
-            val noteEndSample =
-                (
-                    segment.endMs.toDouble() *
-                            sampleRate.toDouble() /
-                            1000.0
-                    ).toInt()
-                    .coerceIn(
-                        0,
-                        originalSamples.size
-                    )
-
-            if (noteEndSample <= noteStartSample) {
-                continue
-            }
-
-            /*
-             * Ajout d'un contexte avant et après.
-             */
-            val contextSamples =
-                (
-                    contextMs.toDouble() *
-                            sampleRate.toDouble() /
-                            1000.0
-                    ).toInt()
-
-            val processStartSample =
-                (
-                    noteStartSample - contextSamples
-                ).coerceAtLeast(0)
-
-            val processEndSample =
-                (
-                    noteEndSample + contextSamples
-                ).coerceAtMost(
-                    originalSamples.size
-                )
-
-            if (processEndSample <= processStartSample) {
-                continue
-            }
-
-            val processLength =
-                processEndSample -
-                        processStartSample
-
-            val processSamples =
-                ShortArray(processLength)
-
-            System.arraycopy(
-                originalSamples,
-                processStartSample,
-                processSamples,
-                0,
-                processLength
-            )
-
-            val tempInput =
-                File(
-                    tempDirectory,
-                    "harmony_segment_in_$index.wav"
-                )
-
-            val tempOutput =
-                File(
-                    tempDirectory,
-                    "harmony_segment_out_$index.wav"
-                )
-
-            try {
-
-                writeWavSamples(
-                    tempInput.absolutePath,
-                    processSamples
-                )
-
-                /*
-                 * Transformation de la note avec
-                 * son contexte audio.
-                 */
-                val transformed =
-                    createHarmonyVoice(
-                        inputWavPath =
-                            tempInput.absolutePath,
-
-                        outputWavPath =
-                            tempOutput.absolutePath,
-
-                        pitchSemiTones =
-                            segment.pitchShift
-                    )
-
-                if (!transformed) {
-                    return false
-                }
-
-                val transformedSamples =
-                    readWavSamples(
-                        tempOutput.absolutePath
-                    ) ?: return false
-
-                /*
-                 * Position de la note à l'intérieur
-                 * du segment avec contexte.
-                 */
-                val noteOffset =
-                    noteStartSample -
-                            processStartSample
-
-                if (
-                    noteOffset < 0 ||
-                    noteOffset >=
-                    transformedSamples.size
-                ) {
-                    continue
-                }
-
-                val noteLength =
-                    noteEndSample -
-                            noteStartSample
-
-                val copyLength =
-                    min(
-                        noteLength,
-                        transformedSamples.size -
-                                noteOffset
-                    )
-
-                if (copyLength > 0) {
-
-                    System.arraycopy(
-                        transformedSamples,
-                        noteOffset,
-                        resultSamples,
-                        noteStartSample,
-                        copyLength
-                    )
-                }
-
-            } finally {
-
-                if (tempInput.exists()) {
-                    tempInput.delete()
-                }
-
-                if (tempOutput.exists()) {
-                    tempOutput.delete()
-                }
-            }
-        }
-
-        /*
-         * Écriture du fichier harmonique final.
-         */
-        writeWavSamples(
-            outputWavPath,
-            resultSamples
+        android.util.Log.d(
+            "HARMONY_VOICE",
+            "CONTINUOUS PITCH SHIFT = $pitchShift"
         )
 
-        true
+        return createHarmonyVoice(
+            inputWavPath =
+                inputWavPath,
+
+            outputWavPath =
+                outputWavPath,
+
+            pitchSemiTones =
+                pitchShift
+        )
 
     } catch (_: Exception) {
 
         false
     }
-}           
+}
+
+
      fun createHarmonyParts(
     inputWavPath: String,
     sopranoWavPath: String,
