@@ -567,97 +567,165 @@ class HarmonyEngine {
      */
 
     private fun detectPitchFromWindow(
-        samples: ShortArray,
-        start: Int,
-        size: Int
-    ): Float? {
+    samples: ShortArray,
+    start: Int,
+    size: Int
+): Float? {
 
-        var energy = 0.0
-
-        for (i in 0 until size) {
-
-            val value =
-                samples[start + i].toDouble()
-
-            energy += value * value
-        }
-
-        if (energy < 1_000_000.0) {
-            return null
-        }
-
-        val minFrequency = 70.0
-        val maxFrequency = 1000.0
-
-        val minLag =
-            (sampleRate / maxFrequency).toInt()
-
-        val maxLag =
-            min(
-                (sampleRate / minFrequency).toInt(),
-                size - 2
-            )
-
-        var bestLag = 0
-        var bestCorrelation = 0.0
-
-        for (lag in minLag..maxLag) {
-
-            var correlation = 0.0
-            var energyA = 0.0
-            var energyB = 0.0
-
-            for (
-                i in 0 until (size - lag)
-            ) {
-
-                val a =
-                    samples[start + i].toDouble()
-
-                val b =
-                    samples[start + i + lag]
-                        .toDouble()
-
-                correlation += a * b
-
-                energyA += a * a
-                energyB += b * b
-            }
-
-            val denominator =
-                sqrt(
-                    energyA * energyB
-                )
-
-            if (denominator > 0.0) {
-
-                val normalizedCorrelation =
-                    correlation / denominator
-
-                if (
-                    normalizedCorrelation >
-                    bestCorrelation
-                ) {
-
-                    bestCorrelation =
-                        normalizedCorrelation
-
-                    bestLag = lag
-                }
-            }
-        }
-
-        if (
-            bestLag <= 0 ||
-            bestCorrelation < 0.70
-        ) {
-            return null
-        }
-
-        return sampleRate.toFloat() /
-                bestLag.toFloat()
+    if (
+        start < 0 ||
+        size < 4 ||
+        start + size > samples.size
+    ) {
+        return null
     }
 
+    // Vérifier l'énergie du signal.
+    var energy = 0.0
+
+    for (i in 0 until size) {
+        val value = samples[start + i].toDouble()
+        energy += value * value
+    }
+
+    if (energy < 1_000_000.0) {
+        return null
+    }
+
+    val minFrequency = 70.0
+    val maxFrequency = 1000.0
+
+    val minLag =
+        (sampleRate / maxFrequency).toInt()
+
+    val maxLag =
+        min(
+            (sampleRate / minFrequency).toInt(),
+            size - 2
+        )
+
+    if (minLag >= maxLag) {
+        return null
+    }
+
+    // Retirer la composante continue du signal.
+    var mean = 0.0
+
+    for (i in 0 until size) {
+        mean += samples[start + i].toDouble()
+    }
+
+    mean /= size.toDouble()
+
+    val signal = DoubleArray(size)
+
+    var centeredEnergy = 0.0
+
+    for (i in 0 until size) {
+        signal[i] =
+            samples[start + i].toDouble() - mean
+
+        centeredEnergy += signal[i] * signal[i]
+    }
+
+    if (centeredEnergy < 1_000_000.0) {
+        return null
+    }
+
+    // Autocorrélation normalisée.
+    val correlations =
+        DoubleArray(maxLag + 1)
+
+    for (lag in minLag..maxLag) {
+
+        var correlation = 0.0
+        var energyA = 0.0
+        var energyB = 0.0
+
+        for (i in 0 until size - lag) {
+
+            val a = signal[i]
+            val b = signal[i + lag]
+
+            correlation += a * b
+            energyA += a * a
+            energyB += b * b
+        }
+
+        val denominator =
+            sqrt(energyA * energyB)
+
+        correlations[lag] =
+            if (denominator > 0.0) {
+                correlation / denominator
+            } else {
+                0.0
+            }
+    }
+
+    // Chercher le meilleur maximum local.
+    var bestLag = -1
+    var bestCorrelation = 0.0
+
+    for (lag in minLag + 1 until maxLag) {
+
+        val correlation = correlations[lag]
+
+        val isLocalMaximum =
+            correlation >= correlations[lag - 1] &&
+            correlation >= correlations[lag + 1]
+
+        if (
+            isLocalMaximum &&
+            correlation > bestCorrelation
+        ) {
+            bestCorrelation = correlation
+            bestLag = lag
+        }
+    }
+
+    if (
+        bestLag <= 0 ||
+        bestCorrelation < 0.70
+    ) {
+        return null
+    }
+
+    // Affiner la période pour améliorer la précision.
+    val left = correlations[bestLag - 1]
+    val center = correlations[bestLag]
+    val right = correlations[bestLag + 1]
+
+    val denominator =
+        left - 2.0 * center + right
+
+    val correction =
+        if (kotlin.math.abs(denominator) > 1e-12) {
+            0.5 * (left - right) / denominator
+        } else {
+            0.0
+        }
+
+    val refinedLag =
+        bestLag.toDouble() + correction.coerceIn(-0.5, 0.5)
+
+    if (refinedLag <= 0.0) {
+        return null
+    }
+
+    val frequency =
+        sampleRate.toDouble() / refinedLag
+
+    if (
+        frequency < minFrequency ||
+        frequency > maxFrequency
+    ) {
+        return null
+    }
+
+    return frequency.toFloat()
+    }
+    
     /*
      * ============================================================
      * TEMPO / BPM
