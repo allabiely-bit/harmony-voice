@@ -2059,18 +2059,45 @@ if (harmonyResult == null) {
 
 runOnUiThread {
 
+    val analysis = harmonyResult.analysis
+
+    val sopranoNotes = formatVoiceNotes(
+        analysis.notes,
+        analysis.sopranoShifts
+    )
+
+    val altoNotes = formatVoiceNotes(
+        analysis.notes,
+        analysis.altoShifts
+    )
+
+    val tenorNotes = formatVoiceNotes(
+        analysis.notes,
+        analysis.tenorShifts
+    )
+
     android.app.AlertDialog.Builder(this)
         .setTitle("🔎 DIAGNOSTIC HARMONY")
         .setMessage(
-            "TONALITÉ : ${harmonyResult.analysis.keyName}\n" +
-            "ROOT : ${harmonyResult.analysis.keyRoot}\n" +
-            "MINEUR : ${harmonyResult.analysis.isMinor}\n\n" +
-            "ALTO :\n${harmonyResult.analysis.altoShifts.take(30)}\n\n" +
-            "TÉNOR :\n${harmonyResult.analysis.tenorShifts.take(30)}"
+            "TONALITÉ : ${analysis.keyName}\n" +
+            "ROOT : ${analysis.keyRoot}\n" +
+            "MINEUR : ${analysis.isMinor}\n\n" +
+
+            "🎵 SOPRANO — NOTES\n" +
+            "$sopranoNotes\n\n" +
+
+            "🎵 ALTO — NOTES\n" +
+            "$altoNotes\n\n" +
+
+            "🎵 TÉNOR — NOTES\n" +
+            "$tenorNotes\n\n" +
+
+            "Les notes affichées sont les notes " +
+            "calculées par l'application."
         )
         .setPositiveButton("OK", null)
         .show()
-}           
+}
             val sopranoDuration =
     getWavDurationMs(sopranoHarmonyFile)
 
@@ -2135,6 +2162,56 @@ runOnUiThread {
         }
 
     }.start()
+    }
+    private fun formatVoiceNotes(
+    notes: List<DetectedNote>,
+    shifts: List<Float>
+): String {
+
+    if (notes.isEmpty()) {
+        return "Aucune note détectée."
+    }
+
+    val noteNames = arrayOf(
+        "Do", "Do#", "Ré", "Ré#",
+        "Mi", "Fa", "Fa#", "Sol",
+        "Sol#", "La", "La#", "Si"
+    )
+
+    return notes.take(20).mapIndexed { index, note ->
+
+        if (note.pitchHz <= 0f) {
+
+            "Inconnue"
+
+        } else {
+
+            val originalMidi =
+                69.0 +
+                12.0 * (
+                    Math.log(
+                        note.pitchHz.toDouble() / 440.0
+                    ) / Math.log(2.0)
+                )
+
+            val shift =
+                shifts.getOrElse(index) { 0f }
+
+            val midi =
+                Math.round(
+                    originalMidi + shift
+                ).toInt()
+
+            val pitchClass =
+                ((midi % 12) + 12) % 12
+
+            val octave =
+                Math.floorDiv(midi, 12) - 1
+
+            noteNames[pitchClass] + octave
+        }
+
+    }.joinToString("  •  ")
     }
     private fun getWavDurationMs(
     wavPath: String
