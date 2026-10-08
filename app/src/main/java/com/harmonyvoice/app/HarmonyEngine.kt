@@ -1235,61 +1235,130 @@ class HarmonyEngine {
         return midi + degreeOffset
     }
 
-    val scale = if (isMinor) {
-        minorScale
-    } else {
-        majorScale
+    val scale =
+        if (isMinor) {
+            minorScale
+        } else {
+            majorScale
+        }
+
+    val roundedMidi =
+        round(midi).toInt()
+
+    /*
+     * On cherche la note de la gamme
+     * la plus proche de la note chantée.
+     */
+    var bestScaleMidi =
+        roundedMidi
+
+    var bestDistance =
+        Int.MAX_VALUE
+
+    for (octave in -2..2) {
+
+        for (degree in scale.indices) {
+
+            val candidateMidi =
+                keyRoot +
+                    scale[degree] +
+                    octave * 12
+
+            val distance =
+                abs(
+                    candidateMidi -
+                        roundedMidi
+                )
+
+            if (distance < bestDistance) {
+
+                bestDistance =
+                    distance
+
+                bestScaleMidi =
+                    candidateMidi
+            }
+        }
     }
 
-    val roundedMidi = round(midi).toInt()
+    /*
+     * Position de la note trouvée
+     * dans la gamme.
+     */
+    var sourceDegree =
+        0
 
-    val pitchClass =
-        ((roundedMidi % 12) + 12) % 12
+    var sourceOctave =
+        0
 
-    val degree = nearestScaleDegree(
-        pitchClass = pitchClass,
-        keyRoot = keyRoot,
-        isMinor = isMinor
-    )
+    var found =
+        false
+
+    for (octave in -2..2) {
+
+        for (degree in scale.indices) {
+
+            val candidateMidi =
+                keyRoot +
+                    scale[degree] +
+                    octave * 12
+
+            if (candidateMidi == bestScaleMidi) {
+
+                sourceDegree =
+                    degree
+
+                sourceOctave =
+                    octave
+
+                found =
+                    true
+
+                break
+            }
+        }
+
+        if (found) {
+            break
+        }
+    }
+
+    /*
+     * Nouvelle position dans la gamme.
+     */
+    val absoluteDegree =
+        sourceDegree +
+            degreeOffset
+
+    val octaveChange =
+        Math.floorDiv(
+            absoluteDegree,
+            scale.size
+        )
 
     val targetDegree =
-        degree + degreeOffset
-
-    val octaveOffset =
-        Math.floorDiv(
-            targetDegree,
-            scale.size
-        )
-
-    val normalizedTargetDegree =
         Math.floorMod(
-            targetDegree,
+            absoluteDegree,
             scale.size
         )
-
-    val sourcePitchClass =
-        (keyRoot + scale[degree]) % 12
-
-    val targetPitchClass =
-        (keyRoot + scale[normalizedTargetDegree]) % 12
-
-    val sourceMidi =
-        roundedMidi -
-        ((roundedMidi - sourcePitchClass + 6) / 12) * 12
 
     val targetMidi =
         keyRoot +
-        scale[normalizedTargetDegree] +
-        (sourceMidi - keyRoot) / 12 * 12 +
-        octaveOffset * 12
+            scale[targetDegree] +
+            (sourceOctave + octaveChange) * 12
 
-    val result =
-        targetMidi +
-        (midi - roundedMidi)
+    /*
+     * On conserve la petite différence
+     * entre la fréquence réelle et la note MIDI
+     * arrondie.
+     */
+    val centsDifference =
+        midi -
+            roundedMidi.toDouble()
 
-    return result
-}
-    
+    return targetMidi.toDouble() +
+        centsDifference
+    }
     
     private fun calculateHarmonyShift(
     pitchHz: Float,
