@@ -2164,7 +2164,7 @@ runOnUiThread {
     }.start()
     }
     private fun formatVoiceNotes(
-    notes: List<DetectedNote>,
+    notes: List<HarmonyEngine.DetectedNote>,
     shifts: List<Float>
 ): String {
 
