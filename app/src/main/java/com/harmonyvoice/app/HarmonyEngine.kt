@@ -1426,71 +1426,119 @@ class HarmonyEngine {
      */
 
     fun analyzeHarmony(
-        inputWavPath: String
-    ): HarmonyAnalysis? {
+    inputWavPath: String
+): HarmonyAnalysis? {
 
-        val analysis =
-            analyzeVoice(inputWavPath)
-                ?: return null
+    val analysis =
+        analyzeVoice(inputWavPath)
+            ?: return null
 
-        val notes =
-            analysis.detectedNotes
+    val notes =
+        analysis.detectedNotes
 
-        if (notes.isEmpty()) {
-            return null
-        }
-        val soprano = notes.map {
-    0f
-}
-
-        val alto = notes.map {
-    -4f
-}
-
-        val tenor = notes.map {
-    -7f
-}
-        
-    android.util.Log.d(
-    "HARMONY_VOICE",
-    "KEY = ${analysis.keyName} root=${analysis.keyRoot} minor=${analysis.isMinor}"
-)
-
-android.util.Log.d(
-    "HARMONY_VOICE",
-    "ALTO CALCULATED = ${alto.take(30)}"
-)
-
-android.util.Log.d(
-    "HARMONY_VOICE",
-    "TENOR CALCULATED = ${tenor.take(30)}"
-)
-        return HarmonyAnalysis(
-            tempoBpm =
-                analysis.tempoBpm,
-
-            keyName =
-                analysis.keyName,
-
-            keyRoot =
-                analysis.keyRoot,
-
-            isMinor =
-                analysis.isMinor,
-
-            notes =
-                notes,
-
-            sopranoShifts =
-                soprano,
-
-            altoShifts =
-                alto,
-
-            tenorShifts =
-                tenor
-        )
+    if (notes.isEmpty()) {
+        return null
     }
+
+    // SOPRANO : conserve la mélodie originale.
+    val soprano =
+        notes.map {
+            0f
+        }
+
+    // ALTO ET TÉNOR : calcul note par note.
+    val alto =
+        mutableListOf<Float>()
+
+    val tenor =
+        mutableListOf<Float>()
+
+    for (note in notes) {
+
+        if (
+            note.pitchHz <= 0f ||
+            analysis.keyRoot < 0
+        ) {
+            alto.add(-4f)
+            tenor.add(-7f)
+            continue
+        }
+
+        val originalMidi =
+            hzToMidi(note.pitchHz)
+
+        // Alto : troisième degré de gamme en dessous.
+        val altoMidi =
+            harmonyMidi(
+                midi = originalMidi,
+                keyRoot = analysis.keyRoot,
+                isMinor = analysis.isMinor,
+                degreeOffset = -2
+            )
+
+        // Ténor : cinquième degré de gamme en dessous.
+        val tenorMidi =
+            harmonyMidi(
+                midi = originalMidi,
+                keyRoot = analysis.keyRoot,
+                isMinor = analysis.isMinor,
+                degreeOffset = -4
+            )
+
+        val altoShift =
+            (altoMidi - originalMidi).toFloat()
+
+        val tenorShift =
+            (tenorMidi - originalMidi).toFloat()
+
+        alto.add(altoShift)
+        tenor.add(tenorShift)
+    }
+
+    android.util.Log.d(
+        "HARMONY_VOICE",
+        "KEY = ${analysis.keyName} " +
+            "root=${analysis.keyRoot} " +
+            "minor=${analysis.isMinor}"
+    )
+
+    android.util.Log.d(
+        "HARMONY_VOICE",
+        "ALTO CALCULATED = ${alto.take(30)}"
+    )
+
+    android.util.Log.d(
+        "HARMONY_VOICE",
+        "TENOR CALCULATED = ${tenor.take(30)}"
+    )
+
+    return HarmonyAnalysis(
+        tempoBpm =
+            analysis.tempoBpm,
+
+        keyName =
+            analysis.keyName,
+
+        keyRoot =
+            analysis.keyRoot,
+
+        isMinor =
+            analysis.isMinor,
+
+        notes =
+            notes,
+
+        sopranoShifts =
+            soprano,
+
+        altoShifts =
+            alto,
+
+        tenorShifts =
+            tenor
+    )
+    }
+
     /*
      * ============================================================
      * GÉNÉRATION D'UNE VOIX
@@ -1498,7 +1546,7 @@ android.util.Log.d(
      * Cette méthode existait déjà dans le projet.
      * Elle est conservée pour ne pas casser MainActivity.
      * ============================================================
-     */
+     */  
 
     fun createHarmonyVoice(
         inputWavPath: String,
