@@ -565,8 +565,7 @@ class HarmonyEngine {
      * PITCH
      * ============================================================
      */
-
-    private fun detectPitchFromWindow(
+     private fun detectPitchFromWindow(
     samples: ShortArray,
     start: Int,
     size: Int
@@ -580,18 +579,6 @@ class HarmonyEngine {
         return null
     }
 
-    // Vérifier l'énergie du signal.
-    var energy = 0.0
-
-    for (i in 0 until size) {
-        val value = samples[start + i].toDouble()
-        energy += value * value
-    }
-
-    if (energy < 1_000_000.0) {
-        return null
-    }
-
     val minFrequency = 70.0
     val maxFrequency = 1000.0
 
@@ -601,14 +588,14 @@ class HarmonyEngine {
     val maxLag =
         min(
             (sampleRate / minFrequency).toInt(),
-            size - 2
+            size / 2
         )
 
     if (minLag >= maxLag) {
         return null
     }
 
-    // Retirer la composante continue du signal.
+    // Retirer la composante continue.
     var mean = 0.0
 
     for (i in 0 until size) {
@@ -618,32 +605,31 @@ class HarmonyEngine {
     mean /= size.toDouble()
 
     val signal = DoubleArray(size)
-
-    var centeredEnergy = 0.0
+    var energy = 0.0
 
     for (i in 0 until size) {
-        signal[i] =
+        val value =
             samples[start + i].toDouble() - mean
 
-        centeredEnergy += signal[i] * signal[i]
+        signal[i] = value
+        energy += value * value
     }
 
-    if (centeredEnergy < 1_000_000.0) {
+    if (energy < 1_000_000.0) {
         return null
     }
 
     // Autocorrélation normalisée.
     val correlations =
-        DoubleArray(maxLag + 1)
+        DoubleArray(maxLag + 2)
 
-    for (lag in minLag..maxLag) {
+    for (lag in 1..maxLag + 1) {
 
         var correlation = 0.0
         var energyA = 0.0
         var energyB = 0.0
 
         for (i in 0 until size - lag) {
-
             val a = signal[i]
             val b = signal[i + lag]
 
@@ -663,35 +649,43 @@ class HarmonyEngine {
             }
     }
 
-    // Chercher le meilleur maximum local.
+    // Repérer les maxima locaux suffisamment fiables.
     var bestLag = -1
-    var bestCorrelation = 0.0
+    var bestScore = -1.0
 
     for (lag in minLag + 1 until maxLag) {
 
-        val correlation = correlations[lag]
+        val value = correlations[lag]
 
         val isLocalMaximum =
-            correlation >= correlations[lag - 1] &&
-            correlation >= correlations[lag + 1]
+            value >= correlations[lag - 1] &&
+            value >= correlations[lag + 1]
 
-        if (
-            isLocalMaximum &&
-            correlation > bestCorrelation
-        ) {
-            bestCorrelation = correlation
+        if (!isLocalMaximum || value < 0.60) {
+            continue
+        }
+
+        /*
+         * Pénalité légère des périodes plus longues :
+         * en cas de scores proches, favoriser la fréquence
+         * la plus élevée afin de réduire certaines erreurs
+         * d'octave.
+         */
+        val score =
+            value - 0.015 * (lag - minLag).toDouble() /
+                (maxLag - minLag).toDouble()
+
+        if (score > bestScore) {
+            bestScore = score
             bestLag = lag
         }
     }
 
-    if (
-        bestLag <= 0 ||
-        bestCorrelation < 0.70
-    ) {
+    if (bestLag <= 0) {
         return null
     }
 
-    // Affiner la période pour améliorer la précision.
+    // Affinage par interpolation parabolique.
     val left = correlations[bestLag - 1]
     val center = correlations[bestLag]
     val right = correlations[bestLag + 1]
@@ -707,7 +701,8 @@ class HarmonyEngine {
         }
 
     val refinedLag =
-        bestLag.toDouble() + correction.coerceIn(-0.5, 0.5)
+        bestLag.toDouble() +
+            correction.coerceIn(-0.5, 0.5)
 
     if (refinedLag <= 0.0) {
         return null
@@ -724,7 +719,8 @@ class HarmonyEngine {
     }
 
     return frequency.toFloat()
-    }
+     }
+    
     
     /*
      * ============================================================
