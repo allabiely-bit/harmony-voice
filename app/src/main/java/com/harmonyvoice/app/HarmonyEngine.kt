@@ -1566,6 +1566,21 @@ class HarmonyEngine {
         "HARMONY_VOICE",
         "TENOR CALCULATED = ${tenor.take(30)}"
     )
+    for (i in 0 until minOf(notes.size, 20)) {
+val originalMidi = hzToMidi(notes[i].pitchHz)
+
+val altoTargetMidi = originalMidi + alto[i]
+val tenorTargetMidi = originalMidi + tenor[i]
+
+android.util.Log.d(
+    "HARMONY_VOICE",
+    "NOTE ${i + 1}: " +
+        "Soprano=${"%.2f".format(originalMidi)} MIDI, " +
+        "Alto=${"%.2f".format(altoTargetMidi)} MIDI, " +
+        "Tenor=${"%.2f".format(tenorTargetMidi)} MIDI"
+)
+
+    }
 
     return HarmonyAnalysis(
         tempoBpm =
