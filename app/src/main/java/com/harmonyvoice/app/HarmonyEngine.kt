@@ -1613,11 +1613,11 @@ class HarmonyEngine {
      */  
 
     fun createHarmonyVoice(
-        inputWavPath: String,
-        outputWavPath: String,
-        pitchSemiTones: Float
-    ): Boolean {
-
+    inputWavPath: String,
+    outputWavPath: String,
+    pitchSemiTones: Float,
+    segments: List<HarmonySegment>? = null
+): Boolean {
         return try {
 
             val inputFile =
@@ -1692,6 +1692,8 @@ class HarmonyEngine {
                 )
 
             var outputDataSize = 0L
+            var samplePosition = 0L
+            var segmentIndex = 0
 
             while (true) {
 
@@ -1724,11 +1726,41 @@ class HarmonyEngine {
                             .toShort()
                 }
 
-                soundTouch.putSamples(
-                    shortBuffer,
-                    0,
-                    samplesRead
-                )
+                if (!segments.isNullOrEmpty()) {
+
+    val centerSample =
+        samplePosition + samplesRead / 2L
+
+    val timeMs =
+        centerSample * 1000L / sampleRate
+
+    while (
+        segmentIndex + 1 < segments.size &&
+        segments[segmentIndex + 1].startMs <= timeMs
+    ) {
+        segmentIndex++
+    }
+
+    val currentSegment = segments[segmentIndex]
+
+    soundTouch.setPitchSemiTones(
+        currentSegment.pitchShift
+    )
+
+} else {
+
+    soundTouch.setPitchSemiTones(
+        pitchSemiTones
+    )
+}
+
+soundTouch.putSamples(
+    shortBuffer,
+    0,
+    samplesRead
+)
+
+samplePosition += samplesRead.toLong()
 
                 while (
                     soundTouch.numSamples() > 0
@@ -1931,24 +1963,12 @@ private fun createSegmentedHarmonyVoice(
          * vraie voix avec SoundTouch.
          */
 
-        val pitchShift =
-            segments.first().pitchShift
-
-        android.util.Log.d(
-            "HARMONY_VOICE",
-            "TEST PITCH SHIFT = $pitchShift"
-        )
-
         createHarmonyVoice(
-            inputWavPath =
-                inputWavPath,
-
-            outputWavPath =
-                outputWavPath,
-
-            pitchSemiTones =
-                pitchShift
-        )
+    inputWavPath = inputWavPath,
+    outputWavPath = outputWavPath,
+    pitchSemiTones = segments.first().pitchShift,
+    segments = segments
+)
 
     } catch (_: Exception) {
 
