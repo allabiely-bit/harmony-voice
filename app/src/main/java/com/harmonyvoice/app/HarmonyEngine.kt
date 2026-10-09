@@ -570,47 +570,35 @@ class HarmonyEngine {
     start: Int,
     size: Int
 ): Float? {
-
-    if (
-        start < 0 ||
-        size < 4 ||
-        start + size > samples.size
-    ) {
+    if (start < 0 || size < 4 || start + size > samples.size) {
         return null
     }
 
     val minFrequency = 70.0
     val maxFrequency = 1000.0
 
-    val minLag =
-        (sampleRate / maxFrequency).toInt()
+    val minLag = (sampleRate / maxFrequency).toInt()
+    val maxLag = min(
+        (sampleRate / minFrequency).toInt(),
+        size / 2
+    )
 
-    val maxLag =
-        min(
-            (sampleRate / minFrequency).toInt(),
-            size / 2
-        )
-
-    if (minLag >= maxLag) {
+    if (minLag < 2 || maxLag <= minLag) {
         return null
     }
 
-    // Retirer la composante continue.
+    // Retirer la composante continue du signal.
     var mean = 0.0
-
     for (i in 0 until size) {
         mean += samples[start + i].toDouble()
     }
-
     mean /= size.toDouble()
 
     val signal = DoubleArray(size)
     var energy = 0.0
 
     for (i in 0 until size) {
-        val value =
-            samples[start + i].toDouble() - mean
-
+        val value = samples[start + i].toDouble() - mean
         signal[i] = value
         energy += value * value
     }
@@ -619,79 +607,90 @@ class HarmonyEngine {
         return null
     }
 
-    // Autocorrélation normalisée.
-    val correlations =
-        DoubleArray(maxLag + 2)
+    // Méthode YIN : mesurer la différence entre
+    // le signal et sa version décalée.
+    val difference = DoubleArray(maxLag + 2)
 
-    for (lag in 1..maxLag + 1) {
+    val comparisonSize = size - maxLag
 
-        var correlation = 0.0
-        var energyA = 0.0
-        var energyB = 0.0
+    for (lag in 1..maxLag) {
+        var sum = 0.0
 
-        for (i in 0 until size - lag) {
-            val a = signal[i]
-            val b = signal[i + lag]
-
-            correlation += a * b
-            energyA += a * a
-            energyB += b * b
+        for (i in 0 until comparisonSize) {
+            val delta = signal[i] - signal[i + lag]
+            sum += delta * delta
         }
 
-        val denominator =
-            sqrt(energyA * energyB)
+        difference[lag] = sum
+    }
 
-        correlations[lag] =
-            if (denominator > 0.0) {
-                correlation / denominator
+    // Différence moyenne cumulée normalisée.
+    val normalized = DoubleArray(maxLag + 2)
+    normalized[0] = 1.0
+
+    var cumulative = 0.0
+
+    for (lag in 1..maxLag) {
+        cumulative += difference[lag]
+
+        normalized[lag] =
+            if (cumulative > 0.0) {
+                difference[lag] * lag / cumulative
             } else {
-                0.0
+                1.0
             }
     }
 
-    // Repérer les maxima locaux suffisamment fiables.
+    // Chercher le premier minimum suffisamment fiable.
+    val threshold = 0.15
     var bestLag = -1
-    var bestScore = -1.0
 
-    for (lag in minLag + 1 until maxLag) {
+    var lag = minLag
 
-        val value = correlations[lag]
+    while (lag <= maxLag) {
+        if (normalized[lag] < threshold) {
+            while (
+                lag < maxLag &&
+                normalized[lag + 1] < normalized[lag]
+            ) {
+                lag++
+            }
 
-        val isLocalMaximum =
-            value >= correlations[lag - 1] &&
-            value >= correlations[lag + 1]
-
-        if (!isLocalMaximum || value < 0.60) {
-            continue
+            bestLag = lag
+            break
         }
 
-        /*
-         * Pénalité légère des périodes plus longues :
-         * en cas de scores proches, favoriser la fréquence
-         * la plus élevée afin de réduire certaines erreurs
-         * d'octave.
-         */
-        val score =
-            value - 0.015 * (lag - minLag).toDouble() /
-                (maxLag - minLag).toDouble()
+        lag++
+    }
 
-        if (score > bestScore) {
-            bestScore = score
-            bestLag = lag
+    // Si aucun minimum fiable n'est trouvé,
+    // retenir le meilleur minimum seulement s'il est crédible.
+    if (bestLag == -1) {
+        var bestValue = Double.POSITIVE_INFINITY
+
+        for (candidate in minLag..maxLag) {
+            if (normalized[candidate] < bestValue) {
+                bestValue = normalized[candidate]
+                bestLag = candidate
+            }
+        }
+
+        if (bestValue > 0.35) {
+            return null
         }
     }
 
-    if (bestLag <= 0) {
+    if (bestLag <= 0 || bestLag >= maxLag) {
         return null
     }
 
-    // Affinage par interpolation parabolique.
-    val left = correlations[bestLag - 1]
-    val center = correlations[bestLag]
-    val right = correlations[bestLag + 1]
+    // Affiner la position du minimum pour améliorer
+    // la précision de la fréquence estimée.
+    val left = normalized[bestLag - 1]
+    val center = normalized[bestLag]
+    val right = normalized[bestLag + 1]
 
-    val denominator =
-        left - 2.0 * center + right
+    val denominator = left - 2.0 * center + right
 
     val correction =
         if (kotlin.math.abs(denominator) > 1e-12) {
@@ -701,25 +700,21 @@ class HarmonyEngine {
         }
 
     val refinedLag =
-        bestLag.toDouble() +
-            correction.coerceIn(-0.5, 0.5)
+        bestLag.toDouble() + correction.coerceIn(-0.5, 0.5)
 
     if (refinedLag <= 0.0) {
         return null
     }
 
-    val frequency =
-        sampleRate.toDouble() / refinedLag
+    val frequency = sampleRate.toDouble() / refinedLag
 
-    if (
-        frequency < minFrequency ||
-        frequency > maxFrequency
-    ) {
+    if (frequency < minFrequency || frequency > maxFrequency) {
         return null
     }
 
     return frequency.toFloat()
      }
+
     
     
     /*
