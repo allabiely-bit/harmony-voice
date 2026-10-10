@@ -434,8 +434,7 @@ class HarmonyEngine {
      * NETTOYAGE DES NOTES
      * ============================================================
      */
-
-    private fun smoothDetectedNotes(
+     private fun smoothDetectedNotes(
     notes: List<DetectedNote>
 ): List<DetectedNote> {
 
@@ -443,82 +442,82 @@ class HarmonyEngine {
         return emptyList()
     }
 
-    val result = mutableListOf<DetectedNote>()
+    val sortedNotes =
+        notes.sortedBy { it.startMs }
 
-    var currentStart = notes.first().startMs
-    var currentEnd = notes.first().endMs
-    var pitchSum = notes.first().pitchHz.toDouble()
+    val result =
+        mutableListOf<DetectedNote>()
+
+    var currentStart =
+        sortedNotes.first().startMs
+
+    var currentEnd =
+        sortedNotes.first().endMs
+
+    var pitchSum =
+        hzToMidi(
+            sortedNotes.first().pitchHz
+        )
+
     var pitchCount = 1
 
     var currentMidi =
-        round(
-            hzToMidi(
-                notes.first().pitchHz
-            )
-        ).toInt()
+        round(pitchSum).toInt()
 
-    for (index in 1 until notes.size) {
+    for (index in 1 until sortedNotes.size) {
 
-        val note = notes[index]
+        val note = sortedNotes[index]
+
+        if (note.pitchHz <= 0f) {
+            continue
+        }
 
         val noteMidi =
             round(
-                hzToMidi(
-                    note.pitchHz
-                )
+                hzToMidi(note.pitchHz)
             ).toInt()
 
         val difference =
-            abs(noteMidi - currentMidi)
+            kotlin.math.abs(noteMidi - currentMidi)
 
         val isContinuous =
-            note.startMs <= currentEnd + 40L
+            note.startMs <= currentEnd + 25L
 
         /*
-         * Une différence de 0 ou 1 demi-ton
-         * peut appartenir à la même note chantée.
-         *
-         * Au-delà, nous considérons qu'il s'agit
-         * d'un véritable changement de note.
+         * Fusionner uniquement les fenêtres
+         * qui correspondent à la même note.
+         * Une différence d'un demi-ton suffit
+         * à signaler un changement de note.
          */
         if (
-            difference <= 1 &&
+            difference == 0 &&
             isContinuous
         ) {
 
             currentEnd =
-                note.endMs
+                maxOf(currentEnd, note.endMs)
 
             pitchSum +=
-                note.pitchHz.toDouble()
+                hzToMidi(note.pitchHz)
 
             pitchCount++
 
             currentMidi =
-    round(
-        hzToMidi(
-            (
-                pitchSum /
-                        pitchCount
-                ).toFloat()
-        )
-    ).toInt()
+                round(
+                    pitchSum / pitchCount
+                ).toInt()
 
         } else {
 
             result.add(
                 DetectedNote(
                     pitchHz =
-                        (
-                            pitchSum /
-                                    pitchCount
-                            ).toFloat(),
+                        midiToHz(
+                            pitchSum / pitchCount
+                        ),
 
-                    startMs =
-                        currentStart,
-
-                    endMs =
-                        currentEnd
+                    startMs = currentStart,
+                    endMs = currentEnd
                 )
             )
 
@@ -529,36 +528,29 @@ class HarmonyEngine {
                 note.endMs
 
             pitchSum =
-                note.pitchHz.toDouble()
+                hzToMidi(note.pitchHz)
 
             pitchCount = 1
 
-            currentMidi =
-                noteMidi
+            currentMidi = noteMidi
         }
     }
 
-    /*
-     * Ajouter la dernière note.
-     */
     result.add(
         DetectedNote(
             pitchHz =
-                (
-                    pitchSum /
-                            pitchCount
-                    ).toFloat(),
+                midiToHz(
+                    pitchSum / pitchCount
+                ),
 
-            startMs =
-                currentStart,
-
-            endMs =
-                currentEnd
+            startMs = currentStart,
+            endMs = currentEnd
         )
     )
 
     return result
-    }
+     }
+    
     
     /*
      * ============================================================
@@ -570,67 +562,92 @@ class HarmonyEngine {
     start: Int,
     size: Int
 ): Float? {
-    if (start < 0 || size < 4 || start + size > samples.size) {
+
+    if (
+        start < 0 ||
+        size < 4 ||
+        start + size > samples.size
+    ) {
         return null
     }
 
     val minFrequency = 70.0
     val maxFrequency = 1000.0
 
-    val minLag = (sampleRate / maxFrequency).toInt()
-    val maxLag = min(
-        (sampleRate / minFrequency).toInt(),
-        size / 2
-    )
+    val minLag =
+        (sampleRate / maxFrequency).toInt()
 
-    if (minLag < 2 || maxLag <= minLag) {
+    val maxLag =
+        min(
+            (sampleRate / minFrequency).toInt(),
+            size / 2
+        )
+
+    if (
+        minLag < 2 ||
+        maxLag <= minLag
+    ) {
         return null
     }
 
-    // Retirer la composante continue du signal.
+    // 1. Retirer la composante continue.
     var mean = 0.0
+
     for (i in 0 until size) {
         mean += samples[start + i].toDouble()
     }
+
     mean /= size.toDouble()
 
     val signal = DoubleArray(size)
     var energy = 0.0
 
     for (i in 0 until size) {
-        val value = samples[start + i].toDouble() - mean
+
+        val value =
+            samples[start + i].toDouble() - mean
+
         signal[i] = value
         energy += value * value
     }
 
+    // Ignorer les fenêtres trop faibles.
     if (energy < 1_000_000.0) {
         return null
     }
 
-    // Méthode YIN : mesurer la différence entre
-    // le signal et sa version décalée.
-    val difference = DoubleArray(maxLag + 2)
-
-    val comparisonSize = size - maxLag
+    // 2. Calculer la fonction de différence YIN.
+    val difference =
+        DoubleArray(maxLag + 2)
 
     for (lag in 1..maxLag) {
+
         var sum = 0.0
 
+        // La taille dépend du décalage.
+        val comparisonSize = size - lag
+
         for (i in 0 until comparisonSize) {
-            val delta = signal[i] - signal[i + lag]
+
+            val delta =
+                signal[i] - signal[i + lag]
+
             sum += delta * delta
         }
 
         difference[lag] = sum
     }
 
-    // Différence moyenne cumulée normalisée.
-    val normalized = DoubleArray(maxLag + 2)
+    // 3. Normaliser les différences cumulées.
+    val normalized =
+        DoubleArray(maxLag + 2)
+
     normalized[0] = 1.0
 
     var cumulative = 0.0
 
     for (lag in 1..maxLag) {
+
         cumulative += difference[lag]
 
         normalized[lag] =
@@ -641,14 +658,17 @@ class HarmonyEngine {
             }
     }
 
-    // Chercher le premier minimum suffisamment fiable.
+    // 4. Chercher un minimum suffisamment fiable.
     val threshold = 0.15
-    var bestLag = -1
 
+    var bestLag = -1
     var lag = minLag
 
     while (lag <= maxLag) {
+
         if (normalized[lag] < threshold) {
+
+            // Descendre jusqu'au minimum local.
             while (
                 lag < maxLag &&
                 normalized[lag + 1] < normalized[lag]
@@ -663,59 +683,57 @@ class HarmonyEngine {
         lag++
     }
 
-    // Si aucun minimum fiable n'est trouvé,
-    // retenir le meilleur minimum seulement s'il est crédible.
+    // Ne pas inventer une note si le résultat
+    // n'est pas suffisamment fiable.
     if (bestLag == -1) {
-        var bestValue = Double.POSITIVE_INFINITY
-
-        for (candidate in minLag..maxLag) {
-            if (normalized[candidate] < bestValue) {
-                bestValue = normalized[candidate]
-                bestLag = candidate
-            }
-        }
-
-        if (bestValue > 0.35) {
-            return null
-        }
-    }
-
-    if (bestLag <= 0 || bestLag >= maxLag) {
         return null
     }
 
-    // Affiner la position du minimum pour améliorer
-    // la précision de la fréquence estimée.
+    if (
+        bestLag <= 0 ||
+        bestLag >= maxLag
+    ) {
+        return null
+    }
+
+    // 5. Affiner le minimum pour améliorer la précision.
     val left = normalized[bestLag - 1]
     val center = normalized[bestLag]
     val right = normalized[bestLag + 1]
 
-    val denominator = left - 2.0 * center + right
+    val denominator =
+        left - 2.0 * center + right
 
     val correction =
-        if (kotlin.math.abs(denominator) > 1e-12) {
+        if (
+            kotlin.math.abs(denominator) > 1e-12
+        ) {
             0.5 * (left - right) / denominator
         } else {
             0.0
         }
 
     val refinedLag =
-        bestLag.toDouble() + correction.coerceIn(-0.5, 0.5)
+        bestLag.toDouble() +
+            correction.coerceIn(-0.5, 0.5)
 
     if (refinedLag <= 0.0) {
         return null
     }
 
-    val frequency = sampleRate.toDouble() / refinedLag
+    // 6. Convertir le décalage en fréquence.
+    val frequency =
+        sampleRate.toDouble() / refinedLag
 
-    if (frequency < minFrequency || frequency > maxFrequency) {
+    if (
+        frequency < minFrequency ||
+        frequency > maxFrequency
+    ) {
         return null
     }
 
     return frequency.toFloat()
      }
-
-    
     
     /*
      * ============================================================
