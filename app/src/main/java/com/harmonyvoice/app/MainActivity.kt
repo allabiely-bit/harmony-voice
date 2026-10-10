@@ -2057,63 +2057,111 @@ if (harmonyResult == null) {
     )
 }
 
-runOnUiThread {
+val analysis = harmonyResult.analysis
 
-    val analysis = harmonyResult.analysis
+// Analyse des trois fichiers audio générés.
+val sopranoAudio =
+    harmonyEngine.analyzeVoice(sopranoHarmonyFile)
 
-    val sopranoNotes = formatVoiceNotes(
-        analysis.notes,
-        analysis.sopranoShifts
-    )
+val altoAudio =
+    harmonyEngine.analyzeVoice(altoHarmonyFile)
 
-    val altoNotes = formatVoiceNotes(
-        analysis.notes,
-        analysis.altoShifts
-    )
+val tenorAudio =
+    harmonyEngine.analyzeVoice(tenorHarmonyFile)
 
-    val tenorNotes = formatVoiceNotes(
-        analysis.notes,
-        analysis.tenorShifts
-    )
+fun diagnosticPart(
+    name: String,
+    path: String,
+    audio: HarmonyEngine.VoiceAnalysis?
+): String {
+    val file = File(path)
 
-    android.app.AlertDialog.Builder(this)
-        .setTitle("🔎 DIAGNOSTIC HARMONY")
-        .setMessage(
+    if (!file.exists() || file.length() <= 44L) {
+        return "🎵 $name\nERREUR : fichier absent ou vide."
+    }
+
+    if (audio == null) {
+        return "🎵 $name\nERREUR : analyse audio impossible."
+    }
+
+    val state = when {
+        audio.durationMs <= 0L ->
+            "ALERTE : durée invalide."
+
+        audio.rmsLevel < 50f ->
+            "ALERTE : son très faible ou presque silencieux."
+
+        audio.detectedNotes.isEmpty() ->
+            "ALERTE : aucune note détectée."
+
+        else ->
+            "Fichier analysable ; son et notes détectés."
+    }
+
+    return "🎵 $name\n" +
+        "Taille : ${file.length()} octets\n" +
+        "Durée : ${audio.durationMs} ms\n" +
+        "Niveau sonore RMS : ${audio.rmsLevel}\n" +
+        "Notes détectées : ${audio.detectedNotes.size}\n" +
+        "Résultat : $state"
+}
+
+if (
+    applicationInfo.flags and
+    android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+) {
+    runOnUiThread {
+
+        val sopranoNotes = formatVoiceNotes(
+            analysis.notes,
+            analysis.sopranoShifts
+        )
+
+        val altoNotes = formatVoiceNotes(
+            analysis.notes,
+            analysis.altoShifts
+        )
+
+        val tenorNotes = formatVoiceNotes(
+            analysis.notes,
+            analysis.tenorShifts
+        )
+
+        val report =
             "TONALITÉ : ${analysis.keyName}\n" +
             "ROOT : ${analysis.keyRoot}\n" +
             "MINEUR : ${analysis.isMinor}\n\n" +
 
-            "🎵 SOPRANO — NOTES\n" +
-            "$sopranoNotes\n\n" +
+            "NOTES CALCULÉES\n\n" +
+            "SOPRANO :\n$sopranoNotes\n\n" +
+            "ALTO :\n$altoNotes\n\n" +
+            "TÉNOR :\n$tenorNotes\n\n" +
 
-            "🎵 ALTO — NOTES\n" +
-            "$altoNotes\n\n" +
+            "RÉSULTATS AUDIO RÉELS\n\n" +
+            diagnosticPart(
+                "SOPRANO",
+                sopranoHarmonyFile,
+                sopranoAudio
+            ) + "\n\n" +
 
-            "🎵 TÉNOR — NOTES\n" +
-            "$tenorNotes\n\n" +
+            diagnosticPart(
+                "ALTO",
+                altoHarmonyFile,
+                altoAudio
+            ) + "\n\n" +
 
-            "Les notes affichées sont les notes " +
-            "calculées par l'application."
-        )
-        .setPositiveButton("OK", null)
-        .show()
-}
-            val sopranoDuration =
-    getWavDurationMs(sopranoHarmonyFile)
+            diagnosticPart(
+                "TÉNOR",
+                tenorHarmonyFile,
+                tenorAudio
+            )
 
-            val altoDuration =
-    getWavDurationMs(altoHarmonyFile)
-
-            val tenorDuration =
-    getWavDurationMs(tenorHarmonyFile)
-
-runOnUiThread {
-
-    Toast.makeText(
-        this,
-        "Durées : Original ${sourceDuration}ms | Soprano ${sopranoDuration}ms | Alto ${altoDuration}ms | Ténor ${tenorDuration}ms",
-        Toast.LENGTH_LONG
-    ).show()
+        android.app.AlertDialog.Builder(this)
+            .setTitle("🔎 DIAGNOSTIC HARMONY")
+            .setMessage(report)
+            .setPositiveButton("OK", null)
+            .show()
+    }
 }
 
             val mixed =
