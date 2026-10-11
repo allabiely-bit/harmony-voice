@@ -2594,4 +2594,101 @@ if (!tenorOk) {
 
         return true
     }
+    /**
+
+* Compare les notes attendues avec les notes réellement détectées
+
+* dans un fichier audio, en rapprochant les notes selon leur temps.
+  */
+  fun compareExpectedAndDetectedNotes(
+  expectedNotes: List<DetectedNote>,
+  actualNotes: List<DetectedNote>,
+  toleranceCents: Double = 50.0
+  ): String {
+  
+  if (expectedNotes.isEmpty()) {
+  return "ERREUR : aucune note attendue à comparer."
+  }
+  
+  if (actualNotes.isEmpty()) {
+  return "ERREUR : aucune note détectée dans le fichier audio."
+  }
+  
+  var compared = 0
+  var correct = 0
+  var outsideTolerance = 0
+  var noMatch = 0
+  var totalErrorCents = 0.0
+  
+  for (expected in expectedNotes) {
+  
+   if (expected.pitchHz <= 0f) continue
+
+ val expectedMidi =
+     69.0 + 12.0 * kotlin.math.log2(
+         expected.pitchHz.toDouble() / 440.0
+     )
+
+ val expectedDuration =
+     expected.endMs - expected.startMs
+
+ if (expectedDuration <= 0L) continue
+
+ val expectedCenter =
+     (expected.startMs + expected.endMs) / 2L
+
+ val nearest = actualNotes
+     .filter {
+         it.pitchHz > 0f &&
+         expectedCenter >= it.startMs - 100L &&
+         expectedCenter <= it.endMs + 100L
+     }
+     .minByOrNull {
+         kotlin.math.abs(
+             ((it.startMs + it.endMs) / 2L) -
+             expectedCenter
+         )
+     }
+
+ if (nearest == null) {
+     noMatch++
+     continue
+ }
+
+ val actualMidi =
+     69.0 + 12.0 * kotlin.math.log2(
+         nearest.pitchHz.toDouble() / 440.0
+     )
+
+ val errorCents =
+     kotlin.math.abs(actualMidi - expectedMidi) * 100.0
+
+ compared++
+ totalErrorCents += errorCents
+
+ if (errorCents <= toleranceCents) {
+     correct++
+ } else {
+     outsideTolerance++
+ }
+  
+  }
+  
+  if (compared == 0) {
+  return "COMPARAISON IMPOSSIBLE : aucune note correspondante dans les mêmes fenêtres temporelles."
+  }
+  
+  val meanError =
+  totalErrorCents / compared
+  
+  val accuracy =
+  correct * 100.0 / compared
+  
+  return "Notes comparées : $compared\n" +
+  "Dans la tolérance : $correct\n" +
+  "Écart supérieur à ${toleranceCents.toInt()} cents : $outsideTolerance\n" +
+  "Sans correspondance temporelle : $noMatch\n" +
+  "Erreur moyenne de hauteur : ${"%.1f".format(java.util.Locale.US, meanError)} cents\n" +
+  "Correspondance dans la tolérance : ${"%.1f".format(java.util.Locale.US, accuracy)} %"
+  }
 }
