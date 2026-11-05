@@ -585,12 +585,15 @@ class HarmonyEngine {
 
     if (
         minLag < 2 ||
-        maxLag <= minLag
+        maxLag <= minLag + 2
     ) {
         return null
     }
 
-    // 1. Retirer la composante continue.
+    // ------------------------------------------------------------
+    // 1. RETIRER LA COMPOSANTE CONTINUE
+    // ------------------------------------------------------------
+
     var mean = 0.0
 
     for (i in 0 until size) {
@@ -599,7 +602,9 @@ class HarmonyEngine {
 
     mean /= size.toDouble()
 
-    val signal = DoubleArray(size)
+    val signal =
+        DoubleArray(size)
+
     var energy = 0.0
 
     for (i in 0 until size) {
@@ -608,24 +613,28 @@ class HarmonyEngine {
             samples[start + i].toDouble() - mean
 
         signal[i] = value
+
         energy += value * value
     }
 
-    // Ignorer les fenêtres trop faibles.
+    // Fenêtre trop faible : aucune note fiable.
     if (energy < 1_000_000.0) {
         return null
     }
 
-    // 2. Calculer la fonction de différence YIN.
+    // ------------------------------------------------------------
+    // 2. DIFFERENCE YIN
+    // ------------------------------------------------------------
+
     val difference =
         DoubleArray(maxLag + 2)
 
     for (lag in 1..maxLag) {
 
-        var sum = 0.0
+        val comparisonSize =
+            size - lag
 
-        // La taille dépend du décalage.
-        val comparisonSize = size - lag
+        var sum = 0.0
 
         for (i in 0 until comparisonSize) {
 
@@ -635,10 +644,14 @@ class HarmonyEngine {
             sum += delta * delta
         }
 
-        difference[lag] = sum
+        difference[lag] =
+            sum
     }
 
-    // 3. Normaliser les différences cumulées.
+    // ------------------------------------------------------------
+    // 3. CMNDF : DIFFERENCE NORMALISEE YIN
+    // ------------------------------------------------------------
+
     val normalized =
         DoubleArray(maxLag + 2)
 
@@ -648,82 +661,157 @@ class HarmonyEngine {
 
     for (lag in 1..maxLag) {
 
-        cumulative += difference[lag]
+        cumulative +=
+            difference[lag]
 
         normalized[lag] =
             if (cumulative > 0.0) {
-                difference[lag] * lag / cumulative
+
+                difference[lag] *
+                    lag /
+                    cumulative
+
             } else {
+
                 1.0
             }
     }
 
-    // 4. Chercher un minimum suffisamment fiable.
-    val threshold = 0.15
+    // ------------------------------------------------------------
+    // 4. RECHERCHER LES MINIMA LOCAUX FIABLES
+    // ------------------------------------------------------------
+
+    val threshold = 0.20
 
     var bestLag = -1
-    var lag = minLag
+    var bestValue = Double.MAX_VALUE
 
-    while (lag <= maxLag) {
+    var lag =
+        maxOf(2, minLag)
 
-        if (normalized[lag] < threshold) {
+    while (lag < maxLag) {
 
-            // Descendre jusqu'au minimum local.
-            while (
-                lag < maxLag &&
-                normalized[lag + 1] < normalized[lag]
-            ) {
-                lag++
+        val current =
+            normalized[lag]
+
+        val previous =
+            normalized[lag - 1]
+
+        val next =
+            normalized[lag + 1]
+
+        val isLocalMinimum =
+            current <= previous &&
+            current <= next
+
+        if (
+            isLocalMinimum &&
+            current < threshold
+        ) {
+
+            /*
+             * On ne prend plus automatiquement
+             * le premier minimum rencontré.
+             *
+             * On conserve le minimum YIN
+             * réellement le plus fiable.
+             */
+            if (current < bestValue) {
+
+                bestValue =
+                    current
+
+                bestLag =
+                    lag
             }
-
-            bestLag = lag
-            break
         }
 
         lag++
     }
 
-    // Ne pas inventer une note si le résultat
-    // n'est pas suffisamment fiable.
+    // ------------------------------------------------------------
+    // 5. SI AUCUN MINIMUM FIABLE N'EST TROUVE
+    // ------------------------------------------------------------
+
     if (bestLag == -1) {
         return null
     }
 
     if (
-        bestLag <= 0 ||
+        bestLag <= minLag ||
         bestLag >= maxLag
     ) {
         return null
     }
 
-    // 5. Affiner le minimum pour améliorer la précision.
-    val left = normalized[bestLag - 1]
-    val center = normalized[bestLag]
-    val right = normalized[bestLag + 1]
+    // ------------------------------------------------------------
+    // 6. VERIFICATION DE LA QUALITE DU MINIMUM
+    // ------------------------------------------------------------
+
+    /*
+     * Un minimum très proche du seuil n'est pas assez
+     * convaincant pour une voix chantée.
+     */
+    if (bestValue >= 0.20) {
+        return null
+    }
+
+    // ------------------------------------------------------------
+    // 7. AFFINEMENT PARABOLIQUE
+    // ------------------------------------------------------------
+
+    val left =
+        normalized[bestLag - 1]
+
+    val center =
+        normalized[bestLag]
+
+    val right =
+        normalized[bestLag + 1]
 
     val denominator =
-        left - 2.0 * center + right
+        left -
+            2.0 * center +
+            right
 
     val correction =
         if (
-            kotlin.math.abs(denominator) > 1e-12
+            kotlin.math.abs(
+                denominator
+            ) > 1e-12
         ) {
-            0.5 * (left - right) / denominator
+
+            0.5 *
+                (left - right) /
+                denominator
+
         } else {
+
             0.0
         }
 
     val refinedLag =
         bestLag.toDouble() +
-            correction.coerceIn(-0.5, 0.5)
+            correction.coerceIn(
+                -0.5,
+                0.5
+            )
 
     if (refinedLag <= 0.0) {
         return null
     }
 
-    // 6. Convertir le décalage en fréquence.
+    // ------------------------------------------------------------
+    // 8. CONVERSION LAG -> FREQUENCE
+    // ------------------------------------------------------------
+
     val frequency =
-        sampleRate.toDouble() / refinedLag
+        sampleRate.toDouble() /
+            refinedLag
+
+    // ------------------------------------------------------------
+    // 9. CONTROLE FINAL DE LA FREQUENCE
+    // ------------------------------------------------------------
 
     if (
         frequency < minFrequency ||
