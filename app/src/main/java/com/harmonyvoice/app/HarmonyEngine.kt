@@ -282,152 +282,165 @@ class HarmonyEngine {
      * NOTE DETECTION
      * ============================================================
      */
+     fun detectNotes(
+    inputWavPath: String
+): List<DetectedNote> {
 
-    fun detectNotes(
-        inputWavPath: String
-    ): List<DetectedNote> {
+    val detectedNotes =
+        mutableListOf<DetectedNote>()
 
-        val detectedNotes =
-            mutableListOf<DetectedNote>()
+    return try {
 
-        return try {
+        val file = File(inputWavPath)
 
-            val file =
-                File(inputWavPath)
+        if (
+            !file.exists() ||
+            file.length() <= 44L
+        ) {
+            return emptyList()
+        }
 
-            if (
-                !file.exists() ||
-                file.length() <= 44L
-            ) {
-                return detectedNotes
-            }
+        FileInputStream(file).use { input ->
 
-            FileInputStream(file).use { input ->
+            // 1. Lire intégralement l'en-tête WAV.
+            val header = ByteArray(44)
 
-                val header =
-                    ByteArray(44)
+            var headerRead = 0
 
-                if (
-                    input.read(header) != 44 ||
-                    !isSupportedWav(header)
-                ) {
-                    return detectedNotes
+            while (headerRead < header.size) {
+
+                val count =
+                    input.read(
+                        header,
+                        headerRead,
+                        header.size - headerRead
+                    )
+
+                if (count <= 0) {
+                    return emptyList()
                 }
 
-                val windowSize = 2048
-                val hopSize = 1024
+                headerRead += count
+            }
 
-                val window =
-                    ShortArray(windowSize)
+            if (!isSupportedWav(header)) {
+                return emptyList()
+            }
 
-                var samplesInWindow = 0
+            // 2. Configuration des fenêtres.
+            val windowSize = 2048
+            val hopSize = 1024
 
-                while (
-                    samplesInWindow < windowSize
+            val window =
+                ShortArray(windowSize)
+
+            var samplesInWindow = 0
+
+            // 3. Fonction locale de lecture PCM 16 bits.
+            fun readNextSample(): Short? {
+
+                val low = input.read()
+
+                if (low == -1) {
+                    return null
+                }
+
+                val high = input.read()
+
+                if (high == -1) {
+                    return null
+                }
+
+                return (
+                    (high shl 8) or
+                        (low and 0xFF)
+                    ).toShort()
+            }
+
+            // 4. Remplir la première fenêtre.
+            while (samplesInWindow < windowSize) {
+
+                val sample =
+                    readNextSample() ?: break
+
+                window[samplesInWindow] = sample
+
+                samplesInWindow++
+            }
+
+            var samplePosition = 0L
+
+            // 5. Analyser uniquement les fenêtres complètes.
+            while (samplesInWindow == windowSize) {
+
+                val pitchHz =
+                    detectPitchFromWindow(
+                        window,
+                        0,
+                        windowSize
+                    )
+
+                if (
+                    pitchHz != null &&
+                    pitchHz.isFinite() &&
+                    pitchHz > 0f
                 ) {
 
-                    val low =
-                        input.read()
+                    val startMs =
+                        (
+                            samplePosition * 1000L
+                        ) / sampleRate
 
-                    if (low == -1) break
+                    val endMs =
+                        (
+                            (samplePosition + windowSize) *
+                                1000L
+                        ) / sampleRate
 
-                    val high =
-                        input.read()
+                    detectedNotes.add(
+                        DetectedNote(
+                            pitchHz = pitchHz,
+                            startMs = startMs,
+                            endMs = endMs
+                        )
+                    )
+                }
 
-                    if (high == -1) break
+                // 6. Décaler la fenêtre de 1024 échantillons.
+                System.arraycopy(
+                    window,
+                    hopSize,
+                    window,
+                    0,
+                    windowSize - hopSize
+                )
 
-                    window[samplesInWindow] =
-                        ((high shl 8) or
-                                (low and 0xFF))
-                            .toShort()
+                samplesInWindow =
+                    windowSize - hopSize
+
+                // 7. Compléter la nouvelle fenêtre.
+                while (samplesInWindow < windowSize) {
+
+                    val sample =
+                        readNextSample() ?: break
+
+                    window[samplesInWindow] = sample
 
                     samplesInWindow++
                 }
 
-                var samplePosition = 0L
-
-                while (
-                    samplesInWindow == windowSize
-                ) {
-
-                    val pitchHz =
-                        detectPitchFromWindow(
-                            window,
-                            0,
-                            windowSize
-                        )
-
-                    if (pitchHz != null) {
-
-                        val startMs =
-                            (samplePosition * 1000L) /
-                                    sampleRate
-
-                        val endMs =
-                            (
-                                    (samplePosition +
-                                            windowSize) *
-                                            1000L
-                                    ) / sampleRate
-
-                        detectedNotes.add(
-                            DetectedNote(
-                                pitchHz =
-                                    pitchHz,
-                                startMs =
-                                    startMs,
-                                endMs =
-                                    endMs
-                            )
-                        )
-                    }
-
-                    System.arraycopy(
-                        window,
-                        hopSize,
-                        window,
-                        0,
-                        windowSize - hopSize
-                    )
-
-                    samplesInWindow =
-                        windowSize - hopSize
-
-                    while (
-                        samplesInWindow < windowSize
-                    ) {
-
-                        val low =
-                            input.read()
-
-                        if (low == -1) break
-
-                        val high =
-                            input.read()
-
-                        if (high == -1) break
-
-                        window[samplesInWindow] =
-                            ((high shl 8) or
-                                    (low and 0xFF))
-                                .toShort()
-
-                        samplesInWindow++
-                    }
-
-                    samplePosition += hopSize
-                }
+                samplePosition += hopSize
             }
-
-            smoothDetectedNotes(
-                detectedNotes
-            )
-
-        } catch (_: Exception) {
-
-            emptyList()
         }
+
+        // 8. Regrouper les notes détectées.
+        smoothDetectedNotes(detectedNotes)
+
+    } catch (e: Exception) {
+
+        emptyList()
     }
+     }
 
     /*
      * ============================================================
@@ -438,12 +451,14 @@ class HarmonyEngine {
     notes: List<DetectedNote>
 ): List<DetectedNote> {
 
-    if (notes.isEmpty()) {
+    val sortedNotes =
+        notes
+            .filter { it.pitchHz > 0f }
+            .sortedBy { it.startMs }
+
+    if (sortedNotes.isEmpty()) {
         return emptyList()
     }
-
-    val sortedNotes =
-        notes.sortedBy { it.startMs }
 
     val result =
         mutableListOf<DetectedNote>()
@@ -464,13 +479,19 @@ class HarmonyEngine {
     var currentMidi =
         round(pitchSum).toInt()
 
+    var previousStartMs =
+        sortedNotes.first().startMs
+
+    // Deux fenêtres normales sont espacées
+    // d'environ 23 ms.
+    // Un intervalle supérieur à 35 ms
+    // indique une interruption probable.
+    val maxFrameGapMs = 35L
+
     for (index in 1 until sortedNotes.size) {
 
-        val note = sortedNotes[index]
-
-        if (note.pitchHz <= 0f) {
-            continue
-        }
+        val note =
+            sortedNotes[index]
 
         val noteMidi =
             round(
@@ -478,24 +499,26 @@ class HarmonyEngine {
             ).toInt()
 
         val difference =
-            kotlin.math.abs(noteMidi - currentMidi)
+            kotlin.math.abs(
+                noteMidi - currentMidi
+            )
+
+        val frameGap =
+            note.startMs - previousStartMs
 
         val isContinuous =
-            note.startMs <= currentEnd + 25L
+            frameGap in 0L..maxFrameGapMs
 
-        /*
-         * Fusionner uniquement les fenêtres
-         * qui correspondent à la même note.
-         * Une différence d'un demi-ton suffit
-         * à signaler un changement de note.
-         */
         if (
             difference == 0 &&
             isContinuous
         ) {
 
             currentEnd =
-                maxOf(currentEnd, note.endMs)
+                maxOf(
+                    currentEnd,
+                    note.endMs
+                )
 
             pitchSum +=
                 hzToMidi(note.pitchHz)
@@ -515,9 +538,10 @@ class HarmonyEngine {
                         midiToHz(
                             pitchSum / pitchCount
                         ),
-
-                    startMs = currentStart,
-                    endMs = currentEnd
+                    startMs =
+                        currentStart,
+                    endMs =
+                        currentEnd
                 )
             )
 
@@ -532,26 +556,30 @@ class HarmonyEngine {
 
             pitchCount = 1
 
-            currentMidi = noteMidi
+            currentMidi =
+                noteMidi
         }
+
+        previousStartMs =
+            note.startMs
     }
 
+    // Ajouter le dernier segment.
     result.add(
         DetectedNote(
             pitchHz =
                 midiToHz(
                     pitchSum / pitchCount
                 ),
-
-            startMs = currentStart,
-            endMs = currentEnd
+            startMs =
+                currentStart,
+            endMs =
+                currentEnd
         )
     )
 
     return result
-     }
-    
-    
+     }    
     /*
      * ============================================================
      * PITCH
@@ -573,6 +601,7 @@ class HarmonyEngine {
 
     val minFrequency = 70.0
     val maxFrequency = 1000.0
+    val threshold = 0.20
 
     val minLag =
         (sampleRate / maxFrequency).toInt()
@@ -583,16 +612,11 @@ class HarmonyEngine {
             size / 2
         )
 
-    if (
-        minLag < 2 ||
-        maxLag <= minLag + 2
-    ) {
+    if (maxLag <= minLag + 2) {
         return null
     }
 
-    // ------------------------------------------------------------
-    // 1. RETIRER LA COMPOSANTE CONTINUE
-    // ------------------------------------------------------------
+    // 1. Retirer la composante continue.
 
     var mean = 0.0
 
@@ -602,8 +626,7 @@ class HarmonyEngine {
 
     mean /= size.toDouble()
 
-    val signal =
-        DoubleArray(size)
+    val signal = DoubleArray(size)
 
     var energy = 0.0
 
@@ -613,18 +636,14 @@ class HarmonyEngine {
             samples[start + i].toDouble() - mean
 
         signal[i] = value
-
         energy += value * value
     }
 
-    // Fenêtre trop faible : aucune note fiable.
     if (energy < 1_000_000.0) {
         return null
     }
 
-    // ------------------------------------------------------------
-    // 2. DIFFERENCE YIN
-    // ------------------------------------------------------------
+    // 2. Calcul de la différence YIN.
 
     val difference =
         DoubleArray(maxLag + 2)
@@ -644,13 +663,10 @@ class HarmonyEngine {
             sum += delta * delta
         }
 
-        difference[lag] =
-            sum
+        difference[lag] = sum
     }
 
-    // ------------------------------------------------------------
-    // 3. CMNDF : DIFFERENCE NORMALISEE YIN
-    // ------------------------------------------------------------
+    // 3. Calcul de la CMNDF.
 
     val normalized =
         DoubleArray(maxLag + 2)
@@ -661,159 +677,100 @@ class HarmonyEngine {
 
     for (lag in 1..maxLag) {
 
-        cumulative +=
-            difference[lag]
+        cumulative += difference[lag]
 
         normalized[lag] =
             if (cumulative > 0.0) {
-
-                difference[lag] *
-                    lag /
-                    cumulative
-
+                difference[lag] * lag / cumulative
             } else {
-
                 1.0
             }
     }
 
-    // ------------------------------------------------------------
-    // 4. RECHERCHER LES MINIMA LOCAUX FIABLES
-    // ------------------------------------------------------------
+    // 4. Recherche du premier creux sous le seuil.
 
-    val threshold = 0.20
+    var selectedLag = -1
 
-    var bestLag = -1
-    var bestValue = Double.MAX_VALUE
-
-    var lag =
-        maxOf(2, minLag)
+    var lag = minLag
 
     while (lag < maxLag) {
 
-        val current =
-            normalized[lag]
+        if (normalized[lag] < threshold) {
 
-        val previous =
-            normalized[lag - 1]
+            selectedLag = lag
 
-        val next =
-            normalized[lag + 1]
-
-        val isLocalMinimum =
-            current <= previous &&
-            current <= next
-
-        if (
-            isLocalMinimum &&
-            current < threshold
-        ) {
-
-            /*
-             * On ne prend plus automatiquement
-             * le premier minimum rencontré.
-             *
-             * On conserve le minimum YIN
-             * réellement le plus fiable.
-             */
-            if (current < bestValue) {
-
-                bestValue =
-                    current
-
-                bestLag =
-                    lag
+            // Descendre jusqu'au minimum local.
+            while (
+                selectedLag + 1 < maxLag &&
+                normalized[selectedLag + 1] <
+                    normalized[selectedLag]
+            ) {
+                selectedLag++
             }
+
+            break
         }
 
         lag++
     }
 
-    // ------------------------------------------------------------
-    // 5. SI AUCUN MINIMUM FIABLE N'EST TROUVE
-    // ------------------------------------------------------------
-
-    if (bestLag == -1) {
+    if (selectedLag == -1) {
         return null
     }
 
+    // 5. Vérification de la qualité.
+
+    val bestValue =
+        normalized[selectedLag]
+
     if (
-        bestLag <= minLag ||
-        bestLag >= maxLag
+        bestValue >= threshold ||
+        selectedLag <= minLag ||
+        selectedLag >= maxLag
     ) {
         return null
     }
 
-    // ------------------------------------------------------------
-    // 6. VERIFICATION DE LA QUALITE DU MINIMUM
-    // ------------------------------------------------------------
-
-    /*
-     * Un minimum très proche du seuil n'est pas assez
-     * convaincant pour une voix chantée.
-     */
-    if (bestValue >= 0.20) {
-        return null
-    }
-
-    // ------------------------------------------------------------
-    // 7. AFFINEMENT PARABOLIQUE
-    // ------------------------------------------------------------
+    // 6. Affinement par interpolation parabolique.
 
     val left =
-        normalized[bestLag - 1]
+        normalized[selectedLag - 1]
 
     val center =
-        normalized[bestLag]
+        normalized[selectedLag]
 
     val right =
-        normalized[bestLag + 1]
+        normalized[selectedLag + 1]
 
     val denominator =
-        left -
-            2.0 * center +
-            right
+        left - 2.0 * center + right
 
     val correction =
         if (
-            kotlin.math.abs(
-                denominator
-            ) > 1e-12
+            kotlin.math.abs(denominator) > 1e-12
         ) {
-
-            0.5 *
-                (left - right) /
-                denominator
-
+            0.5 * (left - right) / denominator
         } else {
-
             0.0
         }
 
     val refinedLag =
-        bestLag.toDouble() +
-            correction.coerceIn(
-                -0.5,
-                0.5
-            )
+        selectedLag.toDouble() +
+            correction.coerceIn(-0.5, 0.5)
 
     if (refinedLag <= 0.0) {
         return null
     }
 
-    // ------------------------------------------------------------
-    // 8. CONVERSION LAG -> FREQUENCE
-    // ------------------------------------------------------------
+    // 7. Conversion en fréquence.
 
     val frequency =
-        sampleRate.toDouble() /
-            refinedLag
+        sampleRate.toDouble() / refinedLag
 
-    // ------------------------------------------------------------
-    // 9. CONTROLE FINAL DE LA FREQUENCE
-    // ------------------------------------------------------------
+    // 8. Contrôle final.
 
     if (
+        !frequency.isFinite() ||
         frequency < minFrequency ||
         frequency > maxFrequency
     ) {
@@ -821,7 +778,7 @@ class HarmonyEngine {
     }
 
     return frequency.toFloat()
-     }
+    }
     
     /*
      * ============================================================
