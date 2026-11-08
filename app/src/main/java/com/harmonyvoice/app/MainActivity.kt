@@ -2249,14 +2249,43 @@ private fun stopPcmRecording() {
                         Toast.LENGTH_LONG
                     ).show()
 
-                } else {
+                                } else {
 
                     Toast.makeText(
                         this,
                         "🎶 Harmonie prête, mais certains fichiers n'ont pas pu être sauvegardés.",
                         Toast.LENGTH_LONG
                     ).show()
-    private fun saveHarmonyWav(
+                }
+            }
+
+        } catch (e: Exception) {
+
+            android.util.Log.e(
+                "HARMONY_VOICE",
+                "Erreur createHarmony",
+                e
+            )
+
+            runOnUiThread {
+
+                harmonyButton.isEnabled = true
+                harmonyButton.alpha = 1.0f
+                harmonyButton.text =
+                    "▶  ÉCOUTER L'HARMONIE"
+
+                Toast.makeText(
+                    this,
+                    "Erreur lors de la création de l'harmonie.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+    }.start()
+}
+
+ private fun saveHarmonyWav(
     sourcePath: String,
     fileName: String
 ): Boolean {
@@ -2445,9 +2474,9 @@ private fun stopPcmRecording() {
 
         false
     }
-    }                
-            
-    private fun formatVoiceNotes(
+}
+
+private fun formatVoiceNotes(
     notes: List<HarmonyEngine.DetectedNote>,
     shifts: List<Float>
 ): String {
