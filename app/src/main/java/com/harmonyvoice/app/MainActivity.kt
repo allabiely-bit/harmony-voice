@@ -1958,8 +1958,6 @@ private fun stopPcmRecording() {
     private fun createHarmony() {
 
     val sourcePath = outputFile
-    val sourceDuration =
-    getWavDurationMs(sourcePath)
 
     if (sourcePath.isEmpty()) {
         Toast.makeText(
@@ -1985,39 +1983,39 @@ private fun stopPcmRecording() {
     harmonyButton.alpha = 0.5f
     harmonyButton.text = "⏳  CRÉATION DE L'HARMONIE..."
 
-    
-
     Thread {
 
         try {
 
+            val timestamp =
+                System.currentTimeMillis()
+
             sopranoHarmonyFile =
                 File(
                     cacheDir,
-                    "soprano_${System.currentTimeMillis()}.wav"
+                    "soprano_$timestamp.wav"
                 ).absolutePath
 
             altoHarmonyFile =
                 File(
                     cacheDir,
-                    "alto_${System.currentTimeMillis()}.wav"
+                    "alto_$timestamp.wav"
                 ).absolutePath
 
             tenorHarmonyFile =
                 File(
                     cacheDir,
-                    "tenor_${System.currentTimeMillis()}.wav"
+                    "tenor_$timestamp.wav"
                 ).absolutePath
 
             harmonyOutputFile =
                 File(
                     cacheDir,
-                    "harmony_${System.currentTimeMillis()}.wav"
+                    "harmony_$timestamp.wav"
                 ).absolutePath
 
-            FileInputStream(
-                sourceFile
-            ).use { input ->
+            // Copie de la voix originale vers le fichier Soprano.
+            FileInputStream(sourceFile).use { input ->
 
                 FileOutputStream(
                     sopranoHarmonyFile
@@ -2043,127 +2041,151 @@ private fun stopPcmRecording() {
                 }
             }
 
+            // Création des trois parties vocales.
             val harmonyResult =
-    harmonyEngine.createHarmonyParts(
-        inputWavPath = sourcePath,
-        sopranoWavPath = sopranoHarmonyFile,
-        altoWavPath = altoHarmonyFile,
-        tenorWavPath = tenorHarmonyFile
-    )
+                harmonyEngine.createHarmonyParts(
+                    inputWavPath = sourcePath,
+                    sopranoWavPath = sopranoHarmonyFile,
+                    altoWavPath = altoHarmonyFile,
+                    tenorWavPath = tenorHarmonyFile
+                )
 
-if (harmonyResult == null) {
-    throw Exception(
-        "Impossible de créer les trois partitions."
-    )
-}
+            if (harmonyResult == null) {
+                throw Exception(
+                    "Impossible de créer les trois parties."
+                )
+            }
 
-val analysis = harmonyResult.analysis
+            val analysis =
+                harmonyResult.analysis
 
-// Analyse des trois fichiers audio générés.
-val sopranoAudio =
-    harmonyEngine.analyzeVoice(sopranoHarmonyFile)
+            // Analyse des trois fichiers générés.
+            val sopranoAudio =
+                harmonyEngine.analyzeVoice(
+                    sopranoHarmonyFile
+                )
 
-val altoAudio =
-    harmonyEngine.analyzeVoice(altoHarmonyFile)
+            val altoAudio =
+                harmonyEngine.analyzeVoice(
+                    altoHarmonyFile
+                )
 
-val tenorAudio =
-    harmonyEngine.analyzeVoice(tenorHarmonyFile)
+            val tenorAudio =
+                harmonyEngine.analyzeVoice(
+                    tenorHarmonyFile
+                )
 
-fun diagnosticPart(
-    name: String,
-    path: String,
-    audio: HarmonyEngine.VoiceAnalysis?
-): String {
-    val file = File(path)
+            fun diagnosticPart(
+                name: String,
+                path: String,
+                audio: HarmonyEngine.VoiceAnalysis?
+            ): String {
 
-    if (!file.exists() || file.length() <= 44L) {
-        return "🎵 $name\nERREUR : fichier absent ou vide."
-    }
+                val file =
+                    File(path)
 
-    if (audio == null) {
-        return "🎵 $name\nERREUR : analyse audio impossible."
-    }
+                if (
+                    !file.exists() ||
+                    file.length() <= 44L
+                ) {
+                    return "🎵 $name\nERREUR : fichier absent ou vide."
+                }
 
-    val state = when {
-        audio.durationMs <= 0L ->
-            "ALERTE : durée invalide."
+                if (audio == null) {
+                    return "🎵 $name\nERREUR : analyse audio impossible."
+                }
 
-        audio.rmsLevel < 50f ->
-            "ALERTE : son très faible ou presque silencieux."
+                val state =
+                    when {
 
-        audio.detectedNotes.isEmpty() ->
-            "ALERTE : aucune note détectée."
+                        audio.durationMs <= 0L ->
+                            "ALERTE : durée invalide."
 
-        else ->
-            "Fichier analysable ; son et notes détectés."
-    }
+                        audio.rmsLevel < 50f ->
+                            "ALERTE : son très faible ou presque silencieux."
 
-    return "🎵 $name\n" +
-        "Taille : ${file.length()} octets\n" +
-        "Durée : ${audio.durationMs} ms\n" +
-        "Niveau sonore RMS : ${audio.rmsLevel}\n" +
-        "Notes détectées : ${audio.detectedNotes.size}\n" +
-        "Résultat : $state"
-}
+                        audio.detectedNotes.isEmpty() ->
+                            "ALERTE : aucune note détectée."
 
-if (
-    applicationInfo.flags and
-    android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
-) {
-    runOnUiThread {
+                        else ->
+                            "Fichier analysable ; son et notes détectés."
+                    }
 
-        val sopranoNotes = formatVoiceNotes(
-            analysis.notes,
-            analysis.sopranoShifts
-        )
+                return "🎵 $name\n" +
+                    "Taille : ${file.length()} octets\n" +
+                    "Durée : ${audio.durationMs} ms\n" +
+                    "Niveau sonore RMS : ${audio.rmsLevel}\n" +
+                    "Notes détectées : ${audio.detectedNotes.size}\n" +
+                    "Résultat : $state"
+            }
 
-        val altoNotes = formatVoiceNotes(
-            analysis.notes,
-            analysis.altoShifts
-        )
+            if (
+                applicationInfo.flags and
+                android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+            ) {
 
-        val tenorNotes = formatVoiceNotes(
-            analysis.notes,
-            analysis.tenorShifts
-        )
+                runOnUiThread {
 
-        val report =
-            "TONALITÉ : ${analysis.keyName}\n" +
-            "ROOT : ${analysis.keyRoot}\n" +
-            "MINEUR : ${analysis.isMinor}\n\n" +
+                    val sopranoNotes =
+                        formatVoiceNotes(
+                            analysis.notes,
+                            analysis.sopranoShifts
+                        )
 
-            "NOTES CALCULÉES\n\n" +
-            "SOPRANO :\n$sopranoNotes\n\n" +
-            "ALTO :\n$altoNotes\n\n" +
-            "TÉNOR :\n$tenorNotes\n\n" +
+                    val altoNotes =
+                        formatVoiceNotes(
+                            analysis.notes,
+                            analysis.altoShifts
+                        )
 
-            "RÉSULTATS AUDIO RÉELS\n\n" +
-            diagnosticPart(
-                "SOPRANO",
-                sopranoHarmonyFile,
-                sopranoAudio
-            ) + "\n\n" +
+                    val tenorNotes =
+                        formatVoiceNotes(
+                            analysis.notes,
+                            analysis.tenorShifts
+                        )
 
-            diagnosticPart(
-                "ALTO",
-                altoHarmonyFile,
-                altoAudio
-            ) + "\n\n" +
+                    val report =
+                        "TONALITÉ : ${analysis.keyName}\n" +
+                        "ROOT : ${analysis.keyRoot}\n" +
+                        "MINEUR : ${analysis.isMinor}\n\n" +
 
-            diagnosticPart(
-                "TÉNOR",
-                tenorHarmonyFile,
-                tenorAudio
-            )
+                        "NOTES CALCULÉES\n\n" +
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("🔎 DIAGNOSTIC HARMONY")
-            .setMessage(report)
-            .setPositiveButton("OK", null)
-            .show()
-    }
-}
+                        "SOPRANO :\n$sopranoNotes\n\n" +
 
+                        "ALTO :\n$altoNotes\n\n" +
+
+                        "TÉNOR :\n$tenorNotes\n\n" +
+
+                        "RÉSULTATS AUDIO RÉELS\n\n" +
+
+                        diagnosticPart(
+                            "SOPRANO",
+                            sopranoHarmonyFile,
+                            sopranoAudio
+                        ) + "\n\n" +
+
+                        diagnosticPart(
+                            "ALTO",
+                            altoHarmonyFile,
+                            altoAudio
+                        ) + "\n\n" +
+
+                        diagnosticPart(
+                            "TÉNOR",
+                            tenorHarmonyFile,
+                            tenorAudio
+                        )
+
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle("🔎 DIAGNOSTIC HARMONY")
+                        .setMessage(report)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+
+            // Mélange des trois voix.
             val mixed =
                 mixHarmonyWavs(
                     sopranoHarmonyFile,
@@ -2178,39 +2200,253 @@ if (
                 )
             }
 
+            // =====================================================
+            // SAUVEGARDE DES 4 FICHIERS AUDIO
+            // =====================================================
+
+            val savedSoprano =
+                saveHarmonyWav(
+                    sopranoHarmonyFile,
+                    "HARMONY_Soprano_$timestamp.wav"
+                )
+
+            val savedAlto =
+                saveHarmonyWav(
+                    altoHarmonyFile,
+                    "HARMONY_Alto_$timestamp.wav"
+                )
+
+            val savedTenor =
+                saveHarmonyWav(
+                    tenorHarmonyFile,
+                    "HARMONY_Tenor_$timestamp.wav"
+                )
+
+            val savedComplete =
+                saveHarmonyWav(
+                    harmonyOutputFile,
+                    "HARMONY_Complet_$timestamp.wav"
+                )
+
             runOnUiThread {
 
                 harmonyButton.isEnabled = true
                 harmonyButton.alpha = 1.0f
-                harmonyButton.text = "▶  ÉCOUTER L'HARMONIE"
+                harmonyButton.text =
+                    "▶  ÉCOUTER L'HARMONIE"
 
-                Toast.makeText(
-                    this,
-                    "🎶 Ton harmonie est prête !",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+                if (
+                    savedSoprano &&
+                    savedAlto &&
+                    savedTenor &&
+                    savedComplete
+                ) {
 
-        } catch (
-            e: Exception
+                    Toast.makeText(
+                        this,
+                        "🎶 Harmonie prête !\n" +
+                            "Les 4 fichiers ont été sauvegardés.",
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                } else {
+
+                    Toast.makeText(
+                        this,
+                        "🎶 Harmonie prête, mais certains fichiers n'ont pas pu être sauvegardés.",
+                        Toast.LENGTH_LONG
+                    ).show()
+    private fun saveHarmonyWav(
+    sourcePath: String,
+    fileName: String
+): Boolean {
+
+    return try {
+
+        val sourceFile =
+            File(sourcePath)
+
+        if (
+            !sourceFile.exists() ||
+            sourceFile.length() <= 44L
         ) {
-
-            runOnUiThread {
-
-                harmonyButton.isEnabled = true
-                harmonyButton.alpha = 1.0f
-                harmonyButton.text = "▶  ÉCOUTER L'HARMONIE"
-
-                Toast.makeText(
-                    this,
-                    "Erreur lors de la création de l'harmonie.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            return false
         }
 
-    }.start()
+        // Android 10 et supérieur
+        if (
+            android.os.Build.VERSION.SDK_INT >=
+            android.os.Build.VERSION_CODES.Q
+        ) {
+
+            val resolver =
+                contentResolver
+
+            val values =
+                android.content.ContentValues().apply {
+
+                    put(
+                        android.provider.MediaStore.Downloads.DISPLAY_NAME,
+                        fileName
+                    )
+
+                    put(
+                        android.provider.MediaStore.Downloads.MIME_TYPE,
+                        "audio/wav"
+                    )
+
+                    put(
+                        android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_DOWNLOADS +
+                            "/Harmony Voice"
+                    )
+
+                    put(
+                        android.provider.MediaStore.Downloads.IS_PENDING,
+                        1
+                    )
+                }
+
+            val uri =
+                resolver.insert(
+                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values
+                )
+                    ?: return false
+
+            try {
+
+                resolver.openOutputStream(uri).use { output ->
+
+                    if (output == null) {
+                        throw Exception(
+                            "Impossible d'ouvrir le fichier de sortie."
+                        )
+                    }
+
+                    FileInputStream(
+                        sourceFile
+                    ).use { input ->
+
+                        val buffer =
+                            ByteArray(8192)
+
+                        var read: Int
+
+                        while (
+                            input.read(buffer).also {
+                                read = it
+                            } != -1
+                        ) {
+
+                            output.write(
+                                buffer,
+                                0,
+                                read
+                            )
+                        }
+                    }
+                }
+
+                values.clear()
+
+                values.put(
+                    android.provider.MediaStore.Downloads.IS_PENDING,
+                    0
+                )
+
+                resolver.update(
+                    uri,
+                    values,
+                    null,
+                    null
+                )
+
+                true
+
+            } catch (
+                e: Exception
+            ) {
+
+                resolver.delete(
+                    uri,
+                    null,
+                    null
+                )
+
+                false
+            }
+
+        } else {
+
+            // Android plus ancien :
+            // sauvegarde dans le dossier Download
+            // propre à l'application.
+
+            val downloadDir =
+                File(
+                    getExternalFilesDir(
+                        android.os.Environment.DIRECTORY_DOWNLOADS
+                    ),
+                    "Harmony Voice"
+                )
+
+            if (!downloadDir.exists()) {
+                downloadDir.mkdirs()
+            }
+
+            val destination =
+                File(
+                    downloadDir,
+                    fileName
+                )
+
+            FileInputStream(
+                sourceFile
+            ).use { input ->
+
+                FileOutputStream(
+                    destination
+                ).use { output ->
+
+                    val buffer =
+                        ByteArray(8192)
+
+                    var read: Int
+
+                    while (
+                        input.read(buffer).also {
+                            read = it
+                        } != -1
+                    ) {
+
+                        output.write(
+                            buffer,
+                            0,
+                            read
+                        )
+                    }
+                }
+            }
+
+            destination.exists() &&
+                destination.length() > 44L
+        }
+
+    } catch (
+        e: Exception
+    ) {
+
+        android.util.Log.e(
+            "HARMONY_VOICE",
+            "Erreur sauvegarde WAV : $fileName",
+            e
+        )
+
+        false
     }
+    }                
+            
     private fun formatVoiceNotes(
     notes: List<HarmonyEngine.DetectedNote>,
     shifts: List<Float>
